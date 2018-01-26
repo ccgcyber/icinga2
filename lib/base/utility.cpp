@@ -1935,3 +1935,34 @@ String Utility::GetIcingaDataPath()
 }
 
 #endif /* _WIN32 */
+
+String Utility::GetFromSysconfig(String env)
+{
+#ifndef _WIN32
+	String sysconf = Application::GetSysconfigFile();
+	if (sysconf.IsEmpty())
+		return "";
+
+	String cmd = "sh -c '. \"" + sysconf + "\" 2>&1 >/dev/null;echo \"$" + env.ToUpper() + "\"'";
+
+    FILE *fp = popen(cmd.CStr(), "r");
+
+    if (!fp)
+        return "";
+
+    char line[1024];
+	String out;
+
+    if (fgets(line, sizeof(line), fp))
+        out = line;
+	else
+		return "";
+
+    pclose(fp);
+
+    return out.Trim();
+#else
+	//TODO: Figure out how to do this on windows
+	return "";
+#endif /* _WIN32 */
+}
