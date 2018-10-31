@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -60,6 +60,9 @@ void CheckResultReader::Start(bool runtimeCreated)
 
 	Log(LogInformation, "CheckResultReader")
 		<< "'" << GetName() << "' started.";
+
+	Log(LogWarning, "CheckResultReader")
+		<< "The CheckResultReader feature is DEPRECATED and will be removed in Icinga v2.11.";
 
 #ifndef _WIN32
 	m_ReadTimer = new Timer();

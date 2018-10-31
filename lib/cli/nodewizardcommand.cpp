@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -104,7 +104,8 @@ int NodeWizardCommand::Run(const boost::program_options::variables_map& vm,
 	 * 9. enable ApiListener feature
 	 * 10. generate zones.conf with endpoints and zone objects
 	 * 11. set NodeName = cn in constants.conf
-	 * 12. reload icinga2, or tell the user to
+	 * 12. disable conf.d directory?
+	 * 13. reload icinga2, or tell the user to
 	 */
 
 	std::string answer;
@@ -254,6 +255,7 @@ wizard_endpoint_loop_start:
 	if (choice.Contains("y"))
 		goto wizard_endpoint_loop_start;
 
+	/* Extract parent node information. */
 	String parentHost, parentPort;
 
 	for (const String& endpoint : endpoints) {
@@ -270,8 +272,8 @@ wizard_endpoint_loop_start:
 	String certsDir = ApiListener::GetCertsDir();
 	Utility::MkDirP(certsDir, 0700);
 
-	String user = ScriptGlobal::Get("RunAsUser");
-	String group = ScriptGlobal::Get("RunAsGroup");
+	String user = Configuration::RunAsUser;
+	String group = Configuration::RunAsGroup;
 
 	if (!Utility::SetFileOwnership(certsDir, user, group)) {
 		Log(LogWarning, "cli")
@@ -390,7 +392,7 @@ wizard_ticket:
 	} else {
 		/* We cannot retrieve the parent certificate.
 		 * Tell the user to manually copy the ca.crt file
-		 * into LocalStateDir + "/lib/icinga2/certs"
+		 * into DataDir + "/certs"
 		 */
 
 		std::cout <<  ConsoleColorTag(Console_Bold)
@@ -496,10 +498,77 @@ wizard_ticket:
 			<< boost::errinfo_file_name(tempApiConfPath));
 	}
 
-	/* apilistener config */
+	/* Zones configuration. */
 	Log(LogInformation, "cli", "Generating local zones.conf.");
 
-	NodeUtility::GenerateNodeIcingaConfig(endpoints, { "global-templates", "director-global" });
+	/* Setup command hardcodes this as FQDN */
+	String endpointName = cn;
+
+	/* Different local zone name. */
+	std::cout << "\nLocal zone name [" + endpointName + "]: ";
+	std::getline(std::cin, answer);
+
+	if (answer.empty())
+		answer = endpointName;
+
+	String zoneName = answer;
+	zoneName = zoneName.Trim();
+
+	/* Different parent zone name. */
+	std::cout << "Parent zone name [master]: ";
+	std::getline(std::cin, answer);
+
+	if (answer.empty())
+		answer = "master";
+
+	String parentZoneName = answer;
+	parentZoneName = parentZoneName.Trim();
+
+	/* Global zones. */
+	std::vector<String> globalZones { "global-templates", "director-global" };
+
+	std::cout << "\nDefault global zones: " << boost::algorithm::join(globalZones, " ");
+	std::cout << "\nDo you want to specify additional global zones? [y/N]: ";
+
+	std::getline(std::cin, answer);
+	boost::algorithm::to_lower(answer);
+	choice = answer;
+
+wizard_global_zone_loop_start:
+	if (choice.Contains("y")) {
+		std::cout << "\nPlease specify the name of the global Zone: ";
+
+		std::getline(std::cin, answer);
+
+		if (answer.empty()) {
+			std::cout << "\nName of the global Zone is required! Please retry.";
+			goto wizard_global_zone_loop_start;
+		}
+
+		String globalZoneName = answer;
+		globalZoneName = globalZoneName.Trim();
+
+		if (std::find(globalZones.begin(), globalZones.end(), globalZoneName) != globalZones.end()) {
+			std::cout << "The global zone '" << globalZoneName << "' is already specified."
+				<< " Please retry.";
+			goto wizard_global_zone_loop_start;
+		}
+
+		globalZones.push_back(globalZoneName);
+
+		std::cout << "\nDo you want to specify another global zone? [y/N]: ";
+
+		std::getline(std::cin, answer);
+		boost::algorithm::to_lower(answer);
+		choice = answer;
+
+		if (choice.Contains("y"))
+			goto wizard_global_zone_loop_start;
+	} else
+		Log(LogInformation, "cli", "No additional global Zones have been specified");
+
+	/* Generate node configuration. */
+	NodeUtility::GenerateNodeIcingaConfig(endpointName, zoneName, parentZoneName, endpoints, globalZones);
 
 	if (cn != Utility::GetFQDN()) {
 		Log(LogWarning, "cli")
@@ -536,6 +605,42 @@ wizard_ticket:
 				<< boost::errinfo_errno(errno)
 				<< boost::errinfo_file_name(tempTicketPath));
 		}
+	}
+
+	/* If no parent connection was made, the user must supply the ca.crt before restarting Icinga 2.*/
+	if (!connectToParent) {
+		Log(LogWarning, "cli")
+			<< "No connection to the parent node was specified.\n\n"
+			<< "Please copy the public CA certificate from your master/satellite\n"
+			<< "into '" << nodeCA << "' before starting Icinga 2.\n";
+	} else {
+		Log(LogInformation, "cli", "Make sure to restart Icinga 2.");
+	}
+
+	/* Disable conf.d inclusion */
+	std::cout << "\nDo you want to disable the inclusion of the conf.d directory [Y/n]: ";
+
+	std::getline(std::cin, answer);
+	boost::algorithm::to_lower(answer);
+	choice = answer;
+
+	if (choice.Contains("n"))
+		Log(LogInformation, "cli")
+			<< "conf.d directory has not been disabled.";
+	else {
+		std::cout << ConsoleColorTag(Console_Bold | Console_ForegroundGreen)
+			<< "Disabling the inclusion of the conf.d directory...\n"
+			<< ConsoleColorTag(Console_Normal);
+
+		if (!NodeUtility::UpdateConfiguration("\"conf.d\"", false, true)) {
+			std::cout << ConsoleColorTag(Console_Bold | Console_ForegroundRed)
+				<< "Failed to disable the conf.d inclusion, it may already have been disabled.\n"
+				<< ConsoleColorTag(Console_Normal);
+		}
+
+		/* Satellite/Clients should not include the api-users.conf file.
+		 * The configuration should instead be managed via config sync or automation tools.
+		 */
 	}
 
 	return 0;
@@ -582,6 +687,7 @@ int NodeWizardCommand::MasterSetup() const
 	std::cout << ConsoleColorTag(Console_Bold)
 		<< "Generating master configuration for Icinga 2.\n"
 		<< ConsoleColorTag(Console_Normal);
+
 	ApiSetupUtility::SetupMasterApiUser();
 
 	if (!FeatureUtility::CheckFeatureEnabled("api"))
@@ -589,7 +695,64 @@ int NodeWizardCommand::MasterSetup() const
 	else
 		std::cout << "'api' feature already enabled.\n";
 
-	NodeUtility::GenerateNodeMasterIcingaConfig({ "global-templates", "director-global" });
+	/* Setup command hardcodes this as FQDN */
+	String endpointName = cn;
+
+	/* Different zone name. */
+	std::cout << "\nMaster zone name [master]: ";
+	std::getline(std::cin, answer);
+
+	if (answer.empty())
+		answer = "master";
+
+	String zoneName = answer;
+	zoneName = zoneName.Trim();
+
+	/* Global zones. */
+	std::vector<String> globalZones { "global-templates", "director-global" };
+
+	std::cout << "\nDefault global zones: " << boost::algorithm::join(globalZones, " ");
+	std::cout << "\nDo you want to specify additional global zones? [y/N]: ";
+
+	std::getline(std::cin, answer);
+	boost::algorithm::to_lower(answer);
+	choice = answer;
+
+wizard_global_zone_loop_start:
+	if (choice.Contains("y")) {
+		std::cout << "\nPlease specify the name of the global Zone: ";
+
+		std::getline(std::cin, answer);
+
+		if (answer.empty()) {
+			std::cout << "\nName of the global Zone is required! Please retry.";
+			goto wizard_global_zone_loop_start;
+		}
+
+		String globalZoneName = answer;
+		globalZoneName = globalZoneName.Trim();
+
+		if (std::find(globalZones.begin(), globalZones.end(), globalZoneName) != globalZones.end()) {
+			std::cout << "The global zone '" << globalZoneName << "' is already specified."
+				<< " Please retry.";
+			goto wizard_global_zone_loop_start;
+		}
+
+		globalZones.push_back(globalZoneName);
+
+		std::cout << "\nDo you want to specify another global zone? [y/N]: ";
+
+		std::getline(std::cin, answer);
+		boost::algorithm::to_lower(answer);
+		choice = answer;
+
+		if (choice.Contains("y"))
+			goto wizard_global_zone_loop_start;
+	} else
+		Log(LogInformation, "cli", "No additional global Zones have been specified");
+
+	/* Generate master configuration. */
+	NodeUtility::GenerateNodeMasterIcingaConfig(endpointName, zoneName, globalZones);
 
 	/* apilistener config */
 	std::cout << ConsoleColorTag(Console_Bold)
@@ -654,12 +817,52 @@ int NodeWizardCommand::MasterSetup() const
 			<< Utility::GetFQDN() << "'. Requires an update for the NodeName constant in constants.conf!";
 	}
 
+	Log(LogInformation, "cli", "Updating constants.conf.");
+
+	NodeUtility::CreateBackupFile(NodeUtility::GetConstantsConfPath());
+
 	NodeUtility::UpdateConstant("NodeName", cn);
 	NodeUtility::UpdateConstant("ZoneName", cn);
 
 	String salt = RandomString(16);
 
 	NodeUtility::UpdateConstant("TicketSalt", salt);
+
+	/* Disable conf.d inclusion */
+	std::cout << "\nDo you want to disable the inclusion of the conf.d directory [Y/n]: ";
+
+	std::getline(std::cin, answer);
+	boost::algorithm::to_lower(answer);
+	choice = answer;
+
+	if (choice.Contains("n"))
+		Log(LogInformation, "cli")
+			<< "conf.d directory has not been disabled.";
+	else {
+		std::cout << ConsoleColorTag(Console_Bold | Console_ForegroundGreen)
+			<< "Disabling the inclusion of the conf.d directory...\n"
+			<< ConsoleColorTag(Console_Normal);
+
+		if (!NodeUtility::UpdateConfiguration("\"conf.d\"", false, true)) {
+			std::cout << ConsoleColorTag(Console_Bold | Console_ForegroundRed)
+				<< "Failed to disable the conf.d inclusion, it may already have been disabled.\n"
+				<< ConsoleColorTag(Console_Normal);
+		}
+
+		/* Include api-users.conf */
+		String apiUsersFilePath = Configuration::ConfigDir + "/conf.d/api-users.conf";
+
+		std::cout << ConsoleColorTag(Console_Bold | Console_ForegroundGreen)
+			<< "Checking if the api-users.conf file exists...\n"
+			<< ConsoleColorTag(Console_Normal);
+
+		if (Utility::PathExists(apiUsersFilePath)) {
+			NodeUtility::UpdateConfiguration("\"conf.d/api-users.conf\"", true, false);
+		} else {
+			Log(LogWarning, "cli")
+				<< "Included file '" << apiUsersFilePath << "' does not exist.";
+		}
+	}
 
 	return 0;
 }

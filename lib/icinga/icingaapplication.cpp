@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -41,7 +41,8 @@ using namespace icinga;
 static Timer::Ptr l_RetentionTimer;
 
 REGISTER_TYPE(IcingaApplication);
-INITIALIZE_ONCE(&IcingaApplication::StaticInitialize);
+/* Ensure that the priority is lower than the basic System namespace initialization in scriptframe.cpp. */
+INITIALIZE_ONCE_WITH_PRIORITY(&IcingaApplication::StaticInitialize, 50);
 
 void IcingaApplication::StaticInitialize()
 {
@@ -59,7 +60,20 @@ void IcingaApplication::StaticInitialize()
 
 	ScriptGlobal::Set("NodeName", node_name);
 
-	ScriptGlobal::Set("ApplicationType", "IcingaApplication");
+	Namespace::Ptr systemNS = ScriptGlobal::Get("System");
+	/* Ensure that the System namespace is already initialized. Otherwise this is a programming error. */
+	VERIFY(systemNS);
+
+	systemNS->Set("ApplicationType", "IcingaApplication", true);
+	systemNS->Set("ApplicationVersion", Application::GetAppVersion(), true);
+
+	Namespace::Ptr globalNS = ScriptGlobal::GetGlobals();
+	VERIFY(globalNS);
+
+	auto icingaNSBehavior = new ConstNamespaceBehavior();
+	icingaNSBehavior->Freeze();
+	Namespace::Ptr icingaNS = new Namespace(icingaNSBehavior);
+	globalNS->SetAttribute("Icinga", std::make_shared<ConstEmbeddedNamespaceValue>(icingaNS));
 }
 
 REGISTER_STATSFUNCTION(IcingaApplication, &IcingaApplication::StatsFunc);
@@ -77,6 +91,7 @@ void IcingaApplication::StatsFunc(const Dictionary::Ptr& status, const Array::Pt
 			{ "enable_host_checks", icingaapplication->GetEnableHostChecks() },
 			{ "enable_service_checks", icingaapplication->GetEnableServiceChecks() },
 			{ "enable_perfdata", icingaapplication->GetEnablePerfdata() },
+			{ "environment", icingaapplication->GetEnvironment() },
 			{ "pid", Utility::GetPid() },
 			{ "program_start", Application::GetStartTime() },
 			{ "version", Application::GetAppVersion() }
@@ -153,13 +168,13 @@ static void PersistModAttrHelper(std::fstream& fp, ConfigObject::Ptr& previousOb
 
 void IcingaApplication::DumpProgramState()
 {
-	ConfigObject::DumpObjects(GetStatePath());
+	ConfigObject::DumpObjects(Configuration::StatePath);
 	DumpModifiedAttributes();
 }
 
 void IcingaApplication::DumpModifiedAttributes()
 {
-	String path = GetModAttrPath();
+	String path = Configuration::ModAttrPath;
 
 	std::fstream fp;
 	String tempFilename = Utility::CreateTempFile(path + ".XXXXXX", 0644, fp);
@@ -289,6 +304,16 @@ bool IcingaApplication::ResolveMacro(const String& macro, const CheckResult::Ptr
 String IcingaApplication::GetNodeName() const
 {
 	return ScriptGlobal::Get("NodeName");
+}
+
+String IcingaApplication::GetEnvironment() const
+{
+	return Application::GetAppEnvironment();
+}
+
+void IcingaApplication::SetEnvironment(const String& value, bool suppress_events, const Value& cookie)
+{
+	Application::SetAppEnvironment(value);
 }
 
 void IcingaApplication::ValidateVars(const Lazy<Dictionary::Ptr>& lvalue, const ValidationUtils& utils)

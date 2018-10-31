@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -20,6 +20,7 @@
 #include "remote/zone.hpp"
 #include "remote/zone-ti.cpp"
 #include "remote/jsonrpcconnection.hpp"
+#include "base/array.hpp"
 #include "base/objectlock.hpp"
 #include "base/logger.hpp"
 
@@ -32,6 +33,9 @@ void Zone::OnAllConfigLoaded()
 	ObjectImpl<Zone>::OnAllConfigLoaded();
 
 	m_Parent = Zone::GetByName(GetParentRaw());
+
+	if (m_Parent && m_Parent->IsGlobal())
+		BOOST_THROW_EXCEPTION(ScriptError("Zone '" + GetName() + "' can not have a global zone as parent.", GetDebugInfo()));
 
 	Zone::Ptr zone = m_Parent;
 	int levels = 0;
@@ -86,9 +90,19 @@ std::set<Endpoint::Ptr> Zone::GetEndpoints() const
 	return result;
 }
 
-std::vector<Zone::Ptr> Zone::GetAllParents() const
+std::vector<Zone::Ptr> Zone::GetAllParentsRaw() const
 {
 	return m_AllParents;
+}
+
+Array::Ptr Zone::GetAllParents() const
+{
+	auto result (new Array);
+
+	for (auto& parent : m_AllParents)
+		result->Add(parent->GetName());
+
+	return result;
 }
 
 bool Zone::CanAccessObject(const ConfigObject::Ptr& object)

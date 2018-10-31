@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -571,7 +571,7 @@ void ConfigObject::RestoreObjects(const String& filename, int attributeTypes)
 
 	unsigned long restored = 0;
 
-	WorkQueue upq(25000, Application::GetConcurrency());
+	WorkQueue upq(25000, Configuration::Concurrency);
 	upq.SetName("ConfigObject::RestoreObjects");
 
 	String message;

@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -37,7 +37,7 @@ static bool GetDebugJsonRpcCached()
 
 	debugJsonRpc = false;
 
-	Dictionary::Ptr internal = ScriptGlobal::Get("Internal", &Empty);
+	Namespace::Ptr internal = ScriptGlobal::Get("Internal", &Empty);
 
 	if (!internal)
 		return false;
@@ -72,10 +72,10 @@ size_t JsonRpc::SendMessage(const Stream::Ptr& stream, const Dictionary::Ptr& me
 	return NetString::WriteStringToStream(stream, json);
 }
 
-StreamReadStatus JsonRpc::ReadMessage(const Stream::Ptr& stream, String *message, StreamReadContext& src, bool may_wait)
+StreamReadStatus JsonRpc::ReadMessage(const Stream::Ptr& stream, String *message, StreamReadContext& src, bool may_wait, ssize_t maxMessageLength)
 {
 	String jsonString;
-	StreamReadStatus srs = NetString::ReadStringFromStream(stream, &jsonString, src, may_wait);
+	StreamReadStatus srs = NetString::ReadStringFromStream(stream, &jsonString, src, may_wait, maxMessageLength);
 
 	if (srs != StatusNewItem)
 		return srs;

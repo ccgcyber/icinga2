@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -31,11 +31,13 @@
 
 using namespace icinga;
 
-REGISTER_SCRIPTFUNCTION_NS(Internal, PluginEvent, &PluginEventTask::ScriptFunc, "checkable:resolvedMacros:useResolvedMacros");
+REGISTER_FUNCTION_NONCONST(Internal, PluginEvent, &PluginEventTask::ScriptFunc, "checkable:resolvedMacros:useResolvedMacros");
 
 void PluginEventTask::ScriptFunc(const Checkable::Ptr& checkable,
 	const Dictionary::Ptr& resolvedMacros, bool useResolvedMacros)
 {
+	REQUIRE_NOT_NULL(checkable);
+
 	EventCommand::Ptr commandObj = checkable->GetEventCommand();
 
 	Host::Ptr host;
@@ -49,8 +51,10 @@ void PluginEventTask::ScriptFunc(const Checkable::Ptr& checkable,
 	resolvers.emplace_back("command", commandObj);
 	resolvers.emplace_back("icinga", IcingaApplication::GetInstance());
 
+	int timeout = commandObj->GetTimeout();
+
 	PluginUtility::ExecuteCommand(commandObj, checkable, checkable->GetLastCheckResult(),
-		resolvers, resolvedMacros, useResolvedMacros,
+		resolvers, resolvedMacros, useResolvedMacros, timeout,
 		std::bind(&PluginEventTask::ProcessFinishedHandler, checkable, _1, _2));
 }
 
@@ -58,7 +62,7 @@ void PluginEventTask::ProcessFinishedHandler(const Checkable::Ptr& checkable, co
 {
 	if (pr.ExitStatus != 0) {
 		Process::Arguments parguments = Process::PrepareCommand(commandLine);
-		Log(LogNotice, "PluginEventTask")
+		Log(LogWarning, "PluginEventTask")
 			<< "Event command for object '" << checkable->GetName() << "' (PID: " << pr.PID
 			<< ", arguments: " << Process::PrettyPrintArguments(parguments) << ") terminated with exit code "
 			<< pr.ExitStatus << ", output: " << pr.Output;

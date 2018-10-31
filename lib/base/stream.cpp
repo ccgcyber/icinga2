@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -60,7 +60,7 @@ void Stream::SignalDataAvailable()
 	}
 }
 
-bool Stream::WaitForData(int timeout)
+bool Stream::WaitForData()
 {
 	if (!SupportsWaiting())
 		BOOST_THROW_EXCEPTION(std::runtime_error("Stream does not support waiting."));
@@ -68,10 +68,25 @@ bool Stream::WaitForData(int timeout)
 	boost::mutex::scoped_lock lock(m_Mutex);
 
 	while (!IsDataAvailable() && !IsEof())
-		if (timeout < 0)
-			m_CV.wait(lock);
-		else
-			m_CV.timed_wait(lock, boost::posix_time::milliseconds(timeout * 1000));
+		m_CV.wait(lock);
+
+	return IsDataAvailable() || IsEof();
+}
+
+bool Stream::WaitForData(int timeout)
+{
+	if (!SupportsWaiting())
+		BOOST_THROW_EXCEPTION(std::runtime_error("Stream does not support waiting."));
+
+	if (timeout < 0)
+		BOOST_THROW_EXCEPTION(std::runtime_error("Timeout can't be negative"));
+
+	boost::system_time const point_of_timeout = boost::get_system_time() + boost::posix_time::seconds(timeout);
+
+	boost::mutex::scoped_lock lock(m_Mutex);
+
+	while (!IsDataAvailable() && !IsEof() && point_of_timeout > boost::get_system_time())
+		m_CV.timed_wait(lock, point_of_timeout);
 
 	return IsDataAvailable() || IsEof();
 }
@@ -104,31 +119,19 @@ StreamReadStatus Stream::ReadLine(String *line, StreamReadContext& context, bool
 		}
 	}
 
-	int count = 0;
-	size_t first_newline;
-
 	for (size_t i = 0; i < context.Size; i++) {
 		if (context.Buffer[i] == '\n') {
-			count++;
+			*line = String(context.Buffer, context.Buffer + i);
+			boost::algorithm::trim_right(*line);
 
-			if (count == 1)
-				first_newline = i;
-			else if (count > 1)
-				break;
+			context.DropData(i + 1u);
+
+			context.MustRead = !context.Size;
+			return StatusNewItem;
 		}
 	}
 
-	context.MustRead = (count <= 1);
-
-	if (count > 0) {
-		*line = String(context.Buffer, &(context.Buffer[first_newline]));
-		boost::algorithm::trim_right(*line);
-
-		context.DropData(first_newline + 1);
-
-		return StatusNewItem;
-	}
-
+	context.MustRead = true;
 	return StatusNeedData;
 }
 

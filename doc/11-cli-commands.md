@@ -19,7 +19,7 @@ Usage:
   icinga2 <command> [<arguments>]
 
 Supported commands:
-  * api setup (setup for api)
+  * api setup (setup for API)
   * ca list (lists all certificate signing requests)
   * ca sign (signs an outstanding certificate request)
   * console (Icinga console)
@@ -55,7 +55,7 @@ Global options:
   -X [ --script-debugger ]  whether to enable the script debugger
 
 Report bugs at <https://github.com/Icinga/icinga2>
-Icinga home page: <https://www.icinga.com/>
+Icinga home page: <https://icinga.com/>
 ```
 
 
@@ -135,8 +135,9 @@ added.
 
 ## CLI command: Api <a id="cli-command-api"></a>
 
-Provides the setup CLI command to enable the REST API. More details
-in the [Icinga 2 API](12-icinga2-api.md#icinga2-api-setup) chapter.
+Provides the helper functions `api setup` and `api user`. The first to enable the REST API, the second to create
+ApiUser objects with hashed password strings.
+More details in the [Icinga 2 API](12-icinga2-api.md#icinga2-api-setup) chapter.
 
 ```
 # icinga2 api --help
@@ -146,7 +147,8 @@ Usage:
   icinga2 <command> [<arguments>]
 
 Supported commands:
-  * api setup (setup for api)
+  * api setup (setup for API)
+  * api user (API user creation helper)
 
 Global options:
   -h [ --help ]             show this help message
@@ -163,7 +165,7 @@ Global options:
   -X [ --script-debugger ]  whether to enable the script debugger
 
 Report bugs at <https://github.com/Icinga/icinga2>
-Icinga home page: <https://www.icinga.com/>
+Icinga home page: <https://icinga.com/>
 ```
 
 ## CLI command: Ca <a id="cli-command-ca"></a>
@@ -198,7 +200,7 @@ Global options:
   -X [ --script-debugger ]  whether to enable the script debugger
 
 Report bugs at <https://github.com/Icinga/icinga2>
-Icinga home page: <https://www.icinga.com/>
+Icinga home page: <https://icinga.com/>
 ```
 
 ## CLI command: Console <a id="cli-command-console"></a>
@@ -252,7 +254,7 @@ Command options:
   --sandbox                 enable sandbox mode
 
 Report bugs at <https://github.com/Icinga/icinga2>
-Icinga home page: <https://www.icinga.com/>
+Icinga home page: <https://icinga.com/>
 ```
 
 
@@ -386,23 +388,25 @@ Command options:
   -z [ --no-config ]        start without a configuration file
   -C [ --validate ]         exit after validating the configuration
   -e [ --errorlog ] arg     log fatal errors to the specified log file (only
-                            works in combination with --daemonize)
+                            works in combination with --daemonize or
+                            --close-stdio)
   -d [ --daemonize ]        detach from the controlling terminal
+  --close-stdio             do not log to stdout (or stderr) after startup
 
 Report bugs at <https://github.com/Icinga/icinga2>
-Icinga home page: <https://www.icinga.com/>
+Icinga home page: <https://icinga.com/>
 ```
 
-### Config Files
+### Config Files <a id="cli-command-daemon-config-files"></a>
 
 You can specify one or more configuration files with the `--config` option.
 Configuration files are processed in the order they're specified on the command-line.
 
 When no configuration file is specified and the `--no-config` is not used
 Icinga 2 automatically falls back to using the configuration file
-`SysconfDir + "/icinga2/icinga2.conf"` (where SysconfDir is usually `/etc`).
+`ConfigDir + "/icinga2.conf"` (where ConfigDir is usually `/etc/icinga2`).
 
-### Config Validation
+### Validation <a id="cli-command-daemon-validation"></a>
 
 The `--validate` option can be used to check if configuration files
 contain errors. If any errors are found, the exit status is 1, otherwise 0
@@ -463,7 +467,7 @@ Global options:
   -X [ --script-debugger ]  whether to enable the script debugger
 
 Report bugs at <https://github.com/Icinga/icinga2>
-Icinga home page: <https://www.icinga.com/>
+Icinga home page: <https://icinga.com/>
 ```
 
 ## CLI command: Object <a id="cli-command-object"></a>
@@ -505,7 +509,7 @@ Global options:
   -X [ --script-debugger ]  whether to enable the script debugger
 
 Report bugs at <https://github.com/Icinga/icinga2>
-Icinga home page: <https://www.icinga.com/>
+Icinga home page: <https://icinga.com/>
 ```
 
 ## CLI command: Pki <a id="cli-command-pki"></a>
@@ -552,7 +556,7 @@ Global options:
   -X [ --script-debugger ]  whether to enable the script debugger
 
 Report bugs at <https://github.com/Icinga/icinga2>
-Icinga home page: <https://www.icinga.com/>
+Icinga home page: <https://icinga.com/>
 ```
 
 ## CLI command: Troubleshoot <a id="cli-command-troubleshoot"></a>
@@ -596,7 +600,7 @@ Command options:
   --include-vars            Print all Variables (like `variable list`)
 
 Report bugs at <https://github.com/Icinga/icinga2>
-Icinga home page: <https://www.icinga.com/>
+Icinga home page: <https://icinga.com/>
 ```
 
 ## CLI command: Variable <a id="cli-command-variable"></a>
@@ -629,7 +633,7 @@ Global options:
   -X [ --script-debugger ]  whether to enable the script debugger
 
 Report bugs at <https://github.com/Icinga/icinga2>
-Icinga home page: <https://www.icinga.com/>
+Icinga home page: <https://icinga.com/>
 ```
 
 ## Enabling/Disabling Features <a id="enable-features"></a>
@@ -728,4 +732,3 @@ safely reload the Icinga 2 daemon.
 The `reload` action will send the `SIGHUP` signal to the Icinga 2 daemon
 which will validate the configuration in a separate process and not stop
 the other events like check execution, notifications, etc.
-

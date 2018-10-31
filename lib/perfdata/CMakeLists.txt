@@ -1,5 +1,5 @@
 # Icinga 2
-# Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)
+# Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -46,35 +46,35 @@ set_target_properties (
 
 install_if_not_exists(
   ${PROJECT_SOURCE_DIR}/etc/icinga2/features-available/gelf.conf
-  ${CMAKE_INSTALL_SYSCONFDIR}/icinga2/features-available
+  ${ICINGA2_CONFIGDIR}/features-available
 )
 
 install_if_not_exists(
   ${PROJECT_SOURCE_DIR}/etc/icinga2/features-available/graphite.conf
-  ${CMAKE_INSTALL_SYSCONFDIR}/icinga2/features-available
+  ${ICINGA2_CONFIGDIR}/features-available
 )
 
 install_if_not_exists(
   ${PROJECT_SOURCE_DIR}/etc/icinga2/features-available/influxdb.conf
-  ${CMAKE_INSTALL_SYSCONFDIR}/icinga2/features-available
+  ${ICINGA2_CONFIGDIR}/features-available
 )
 
 install_if_not_exists(
   ${PROJECT_SOURCE_DIR}/etc/icinga2/features-available/elasticsearch.conf
-  ${CMAKE_INSTALL_SYSCONFDIR}/icinga2/features-available
+  ${ICINGA2_CONFIGDIR}/features-available
 )
 
 install_if_not_exists(
   ${PROJECT_SOURCE_DIR}/etc/icinga2/features-available/opentsdb.conf
-  ${CMAKE_INSTALL_SYSCONFDIR}/icinga2/features-available
+  ${ICINGA2_CONFIGDIR}/features-available
 )
 
 install_if_not_exists(
   ${PROJECT_SOURCE_DIR}/etc/icinga2/features-available/perfdata.conf
-  ${CMAKE_INSTALL_SYSCONFDIR}/icinga2/features-available
+  ${ICINGA2_CONFIGDIR}/features-available
 )
 
-install(CODE "file(MAKE_DIRECTORY \"\$ENV{DESTDIR}${CMAKE_INSTALL_FULL_LOCALSTATEDIR}/spool/icinga2/perfdata\")")
-install(CODE "file(MAKE_DIRECTORY \"\$ENV{DESTDIR}${CMAKE_INSTALL_FULL_LOCALSTATEDIR}/spool/icinga2/tmp\")")
+install(CODE "file(MAKE_DIRECTORY \"\$ENV{DESTDIR}${ICINGA2_FULL_SPOOLDIR}/perfdata\")")
+install(CODE "file(MAKE_DIRECTORY \"\$ENV{DESTDIR}${ICINGA2_FULL_SPOOLDIR}/tmp\")")
 
 set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "${CPACK_NSIS_EXTRA_INSTALL_COMMANDS}" PARENT_SCOPE)

@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -65,10 +65,12 @@ public:
 
 	bool IsPeerConnected() const;
 
+	void RebindRequest(const HttpRequest& request);
+
 private:
 	HttpResponseState m_State;
 	std::shared_ptr<ChunkReadContext> m_ChunkContext;
-	const HttpRequest& m_Request;
+	const HttpRequest *m_Request;
 	Stream::Ptr m_Stream;
 	FIFO::Ptr m_Body;
 	std::vector<String> m_Headers;

@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -35,10 +35,9 @@ Dictionary::Ptr HttpUtility::FetchRequestParameters(HttpRequest& request)
 		body += String(buffer, buffer + count);
 
 	if (!body.IsEmpty()) {
-#ifdef I2_DEBUG
 		Log(LogDebug, "HttpUtility")
 			<< "Request body: '" << body << "'";
-#endif /* I2_DEBUG */
+
 		result = JsonDecode(body);
 	}
 
@@ -89,11 +88,18 @@ void HttpUtility::SendJsonError(HttpResponse& response, const Dictionary::Ptr& p
 	response.SetStatus(code, HttpUtility::GetErrorNameByCode(code));
 	result->Set("error", code);
 
+	bool verbose = false;
+
+	if (params)
+		verbose = HttpUtility::GetLastParameter(params, "verbose");
+
 	if (!info.IsEmpty())
 		result->Set("status", info);
 
-	if (!diagnosticInformation.IsEmpty())
-		result->Set("diagnostic information", diagnosticInformation);
+	if (verbose) {
+		if (!diagnosticInformation.IsEmpty())
+			result->Set("diagnostic_information", diagnosticInformation);
+	}
 
 	HttpUtility::SendJsonBody(response, params, result);
 }

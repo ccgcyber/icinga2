@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -35,6 +35,7 @@ static void TypeRegisterAttributeHandler(const String& fieldName, const Function
 {
 	ScriptFrame *vframe = ScriptFrame::GetCurrentFrame();
 	Type::Ptr self = static_cast<Type::Ptr>(vframe->Self);
+	REQUIRE_NOT_NULL(self);
 
 	int fid = self->GetFieldId(fieldName);
 	self->RegisterAttributeHandler(fid, std::bind(&InvokeAttributeHandlerHelper, callback, _1, _2));

@@ -1,5 +1,5 @@
 # Icinga 2
-# Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)
+# Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -38,7 +38,7 @@ set_target_properties (
 
 install_if_not_exists(
   ${PROJECT_SOURCE_DIR}/etc/icinga2/features-available/ido-mysql.conf
-  ${CMAKE_INSTALL_SYSCONFDIR}/icinga2/features-available
+  ${ICINGA2_CONFIGDIR}/features-available
 )
 
 install(

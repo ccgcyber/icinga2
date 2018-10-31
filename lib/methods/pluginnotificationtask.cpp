@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -32,13 +32,16 @@
 
 using namespace icinga;
 
-REGISTER_SCRIPTFUNCTION_NS(Internal, PluginNotification, &PluginNotificationTask::ScriptFunc, "notification:user:cr:itype:author:comment:resolvedMacros:useResolvedMacros");
+REGISTER_FUNCTION_NONCONST(Internal, PluginNotification, &PluginNotificationTask::ScriptFunc, "notification:user:cr:itype:author:comment:resolvedMacros:useResolvedMacros");
 
 void PluginNotificationTask::ScriptFunc(const Notification::Ptr& notification,
 	const User::Ptr& user, const CheckResult::Ptr& cr, int itype,
 	const String& author, const String& comment, const Dictionary::Ptr& resolvedMacros,
 	bool useResolvedMacros)
 {
+	REQUIRE_NOT_NULL(notification);
+	REQUIRE_NOT_NULL(user);
+
 	NotificationCommand::Ptr commandObj = notification->GetCommand();
 
 	auto type = static_cast<NotificationType>(itype);
@@ -65,8 +68,10 @@ void PluginNotificationTask::ScriptFunc(const Notification::Ptr& notification,
 	resolvers.emplace_back("command", commandObj);
 	resolvers.emplace_back("icinga", IcingaApplication::GetInstance());
 
+	int timeout = commandObj->GetTimeout();
+
 	PluginUtility::ExecuteCommand(commandObj, checkable, cr, resolvers,
-		resolvedMacros, useResolvedMacros,
+		resolvedMacros, useResolvedMacros, timeout,
 		std::bind(&PluginNotificationTask::ProcessFinishedHandler, checkable, _1, _2));
 }
 

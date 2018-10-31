@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -103,6 +103,7 @@ public:
 	Value GetField(int id) const override;
 
 	virtual std::vector<String> GetLoadDependencies() const;
+	virtual int GetActivationPriority() const;
 
 	typedef std::function<void (const Object::Ptr&, const Value&)> AttributeHandler;
 	virtual void RegisterAttributeHandler(int fieldId, const AttributeHandler& callback);
@@ -137,6 +138,7 @@ class TypeImpl
 {
 };
 
+/* Ensure that the priority is lower than the basic namespace initialization in scriptframe.cpp. */
 #define REGISTER_TYPE(type) \
 	INITIALIZE_ONCE_WITH_PRIORITY([]() { \
 		icinga::Type::Ptr t = new TypeImpl<type>(); \

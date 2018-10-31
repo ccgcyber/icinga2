@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -19,6 +19,7 @@
 
 #include "base/timer.hpp"
 #include "base/debug.hpp"
+#include "base/logger.hpp"
 #include "base/utility.hpp"
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/condition_variable.hpp>
@@ -71,7 +72,7 @@ static boost::condition_variable l_TimerCV;
 static std::thread l_TimerThread;
 static bool l_StopTimerThread;
 static TimerSet l_Timers;
-static int l_AliveTimers;
+static int l_AliveTimers = 0;
 
 /**
  * Destructor for the Timer class.
@@ -81,16 +82,43 @@ Timer::~Timer()
 	Stop(true);
 }
 
+void Timer::Initialize()
+{
+	boost::mutex::scoped_lock lock(l_TimerMutex);
+
+	if (l_AliveTimers > 0) {
+		InitializeThread();
+	}
+}
+
 void Timer::Uninitialize()
 {
+	boost::mutex::scoped_lock lock(l_TimerMutex);
+
+	if (l_AliveTimers > 0) {
+		UninitializeThread();
+	}
+}
+
+void Timer::InitializeThread()
+{
+	l_StopTimerThread = false;
+	l_TimerThread = std::thread(&Timer::TimerThreadProc);
+}
+
+void Timer::UninitializeThread()
+{
 	{
-		boost::mutex::scoped_lock lock(l_TimerMutex);
 		l_StopTimerThread = true;
 		l_TimerCV.notify_all();
 	}
 
+	l_TimerMutex.unlock();
+
 	if (l_TimerThread.joinable())
 		l_TimerThread.join();
+
+	l_TimerMutex.lock();
 }
 
 /**
@@ -140,9 +168,8 @@ void Timer::Start()
 		boost::mutex::scoped_lock lock(l_TimerMutex);
 		m_Started = true;
 
-		if (l_AliveTimers++ == 0) {
-			l_StopTimerThread = false;
-			l_TimerThread = std::thread(&Timer::TimerThreadProc);
+		if (++l_AliveTimers == 1) {
+			InitializeThread();
 		}
 	}
 
@@ -160,15 +187,7 @@ void Timer::Stop(bool wait)
 	boost::mutex::scoped_lock lock(l_TimerMutex);
 
 	if (m_Started && --l_AliveTimers == 0) {
-		l_StopTimerThread = true;
-		l_TimerCV.notify_all();
-
-		lock.unlock();
-
-		if (l_TimerThread.joinable() && l_TimerThread.get_id() != std::this_thread::get_id())
-			l_TimerThread.join();
-
-		lock.lock();
+		UninitializeThread();
 	}
 
 	m_Started = false;
@@ -270,6 +289,8 @@ void Timer::AdjustTimers(double adjustment)
  */
 void Timer::TimerThreadProc()
 {
+	Log(LogDebug, "Timer", "TimerThreadProc started.");
+
 	Utility::SetThreadName("Timer Thread");
 
 	for (;;) {
@@ -292,7 +313,7 @@ void Timer::TimerThreadProc()
 
 		if (wait > 0.01) {
 			/* Wait for the next timer. */
-			l_TimerCV.timed_wait(lock, boost::posix_time::milliseconds(wait * 1000));
+			l_TimerCV.timed_wait(lock, boost::posix_time::milliseconds(long(wait * 1000)));
 
 			continue;
 		}

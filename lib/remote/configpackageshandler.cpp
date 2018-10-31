@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -48,7 +48,15 @@ void ConfigPackagesHandler::HandleGet(const ApiUser::Ptr& user, HttpRequest& req
 {
 	FilterUtility::CheckPermission(user, "config/query");
 
-	std::vector<String> packages = ConfigPackageUtility::GetPackages();
+	std::vector<String> packages;
+
+	try {
+		packages = ConfigPackageUtility::GetPackages();
+	} catch (const std::exception& ex) {
+		HttpUtility::SendJsonError(response, params, 500, "Could not retrieve packages.",
+			DiagnosticInformation(ex));
+		return;
+	}
 
 	ArrayData results;
 
@@ -81,7 +89,7 @@ void ConfigPackagesHandler::HandlePost(const ApiUser::Ptr& user, HttpRequest& re
 	String packageName = HttpUtility::GetLastParameter(params, "package");
 
 	if (!ConfigPackageUtility::ValidateName(packageName)) {
-		HttpUtility::SendJsonError(response, params, 400, "Invalid package name.");
+		HttpUtility::SendJsonError(response, params, 400, "Invalid package name '" + packageName + "'.");
 		return;
 	}
 
@@ -89,13 +97,14 @@ void ConfigPackagesHandler::HandlePost(const ApiUser::Ptr& user, HttpRequest& re
 		boost::mutex::scoped_lock lock(ConfigPackageUtility::GetStaticMutex());
 		ConfigPackageUtility::CreatePackage(packageName);
 	} catch (const std::exception& ex) {
-		HttpUtility::SendJsonError(response, params, 500, "Could not create package.",
-			HttpUtility::GetLastParameter(params, "verboseErrors") ? DiagnosticInformation(ex) : "");
+		HttpUtility::SendJsonError(response, params, 500, "Could not create package '" + packageName + "'.",
+			DiagnosticInformation(ex));
 		return;
 	}
 
 	Dictionary::Ptr result1 = new Dictionary({
 		{ "code", 200 },
+		{ "package", packageName },
 		{ "status", "Created package." }
 	});
 
@@ -117,31 +126,28 @@ void ConfigPackagesHandler::HandleDelete(const ApiUser::Ptr& user, HttpRequest& 
 	String packageName = HttpUtility::GetLastParameter(params, "package");
 
 	if (!ConfigPackageUtility::ValidateName(packageName)) {
-		HttpUtility::SendJsonError(response, params, 400, "Invalid package name.");
+		HttpUtility::SendJsonError(response, params, 400, "Invalid package name '" + packageName + "'.");
 		return;
 	}
-
-	int code = 200;
-	String status = "Deleted package.";
-	DictionaryData result1;
 
 	try {
 		ConfigPackageUtility::DeletePackage(packageName);
 	} catch (const std::exception& ex) {
-		code = 500;
-		status = "Failed to delete package.";
-		if (HttpUtility::GetLastParameter(params, "verboseErrors"))
-			result1.emplace_back("diagnostic information", DiagnosticInformation(ex));
+		HttpUtility::SendJsonError(response, params, 500, "Failed to delete package '" + packageName + "'.",
+			DiagnosticInformation(ex));
+		return;
 	}
 
-	result1.emplace_back("package", packageName);
-	result1.emplace_back("code", code);
-	result1.emplace_back("status", status);
-
-	Dictionary::Ptr result = new Dictionary({
-		{ "results", new Array({ new Dictionary(std::move(result1)) }) }
+	Dictionary::Ptr result1 = new Dictionary({
+		{ "code", 200 },
+		{ "package", packageName },
+		{ "status", "Deleted package." }
 	});
 
-	response.SetStatus(code, (code == 200) ? "OK" : "Internal Server Error");
+	Dictionary::Ptr result = new Dictionary({
+		{ "results", new Array({ result1 }) }
+	});
+
+	response.SetStatus(200, "OK");
 	HttpUtility::SendJsonBody(response, params, result);
 }

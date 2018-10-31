@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -31,11 +31,14 @@
 
 using namespace icinga;
 
-REGISTER_SCRIPTFUNCTION_NS(Internal, PluginCheck,  &PluginCheckTask::ScriptFunc, "checkable:cr:resolvedMacros:useResolvedMacros");
+REGISTER_FUNCTION_NONCONST(Internal, PluginCheck,  &PluginCheckTask::ScriptFunc, "checkable:cr:resolvedMacros:useResolvedMacros");
 
 void PluginCheckTask::ScriptFunc(const Checkable::Ptr& checkable, const CheckResult::Ptr& cr,
 	const Dictionary::Ptr& resolvedMacros, bool useResolvedMacros)
 {
+	REQUIRE_NOT_NULL(checkable);
+	REQUIRE_NOT_NULL(cr);
+
 	CheckCommand::Ptr commandObj = checkable->GetCheckCommand();
 
 	Host::Ptr host;
@@ -49,8 +52,13 @@ void PluginCheckTask::ScriptFunc(const Checkable::Ptr& checkable, const CheckRes
 	resolvers.emplace_back("command", commandObj);
 	resolvers.emplace_back("icinga", IcingaApplication::GetInstance());
 
+	int timeout = commandObj->GetTimeout();
+
+	if (!checkable->GetCheckTimeout().IsEmpty())
+		timeout = checkable->GetCheckTimeout();
+
 	PluginUtility::ExecuteCommand(commandObj, checkable, checkable->GetLastCheckResult(),
-		resolvers, resolvedMacros, useResolvedMacros,
+		resolvers, resolvedMacros, useResolvedMacros, timeout,
 		std::bind(&PluginCheckTask::ProcessFinishedHandler, checkable, cr, _1, _2));
 
 	if (!resolvedMacros || useResolvedMacros)

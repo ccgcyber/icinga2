@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -33,11 +33,6 @@ Value DbValue::FromTimestamp(const Value& ts)
 	return new DbValue(DbValueTimestamp, ts);
 }
 
-Value DbValue::FromTimestampNow()
-{
-	return new DbValue(DbValueTimestampNow, Empty);
-}
-
 Value DbValue::FromValue(const Value& value)
 {
 	return value;
@@ -55,15 +50,6 @@ bool DbValue::IsTimestamp(const Value& value)
 
 	DbValue::Ptr dbv = value;
 	return dbv->GetType() == DbValueTimestamp;
-}
-
-bool DbValue::IsTimestampNow(const Value& value)
-{
-	if (!value.IsObjectType<DbValue>())
-		return false;
-
-	DbValue::Ptr dbv = value;
-	return dbv->GetType() == DbValueTimestampNow;
 }
 
 bool DbValue::IsObjectInsertID(const Value& value)

@@ -132,6 +132,17 @@ Name            | Description
 dummy\_state     | **Optional.** The state. Can be one of 0 (ok), 1 (warning), 2 (critical) and 3 (unknown). Defaults to 0.
 dummy\_text      | **Optional.** Plugin output. Defaults to "Check was successful.".
 
+### passive <a id="itl-check-command-passive"></a>
+
+Specialised check command object for passive checks which uses the functionality of the "dummy" check command with appropriate default values.
+
+Custom attributes passed as [command parameters](03-monitoring-basics.md#command-passing-parameters):
+
+Name            | Description
+----------------|--------------
+dummy_state     | **Optional.** The state. Can be one of 0 (ok), 1 (warning), 2 (critical) and 3 (unknown). Defaults to 3.
+dummy_text      | **Optional.** Plugin output. Defaults to "No Passive Check Result Received.".
+
 ### random <a id="itl-random"></a>
 
 Check command for the built-in `random` check. This check returns random states
@@ -163,9 +174,11 @@ file:
 The plugin check commands assume that there's a global constant named `PluginDir`
 which contains the path of the plugins from the Monitoring Plugins project.
 
-**Note**: If there are command parameters missing for the provided CheckCommand
-definitions please kindly send a patch upstream. This should include an update
-for the ITL CheckCommand itself and this documentation section.
+> **Note**:
+>
+> Please be aware that the CheckCommand definitions are based on the [Monitoring Plugins](https://www.monitoring-plugins.org), other Plugin collections might not support
+> all parameters. If there are command parameters missing for the provided CheckCommand definitions please kindly send a patch upstream.
+> This should include an update for the ITL CheckCommand itself and this documentation section.
 
 ### apt <a id="plugin-check-command-apt"></a>
 
@@ -332,7 +345,7 @@ disk\_ignore\_eregi\_path | **Optional.** Regular expression to ignore selected 
 disk\_ignore\_ereg\_path  | **Optional.** Regular expression to ignore selected path or partition. Multiple regular expression strings must be defined as array.
 disk\_timeout             | **Optional.** Seconds before connection times out (default: 10).
 disk\_units               | **Optional.** Choose bytes, kB, MB, GB, TB (default: MB).
-disk\_exclude\_type       | **Optional.** Ignore all filesystems of indicated type. Multiple regular expression strings must be defined as array. Defaults to "none", "tmpfs", "sysfs", "proc", "configfs", "devtmpfs", "devfs", "mtmfs", "tracefs", "cgroup", "fuse.gvfsd-fuse", "fuse.gvfs-fuse-daemon", "fdescfs".
+disk\_exclude\_type       | **Optional.** Ignore all filesystems of indicated type. Multiple regular expression strings must be defined as array. Defaults to "none", "tmpfs", "sysfs", "proc", "configfs", "devtmpfs", "devfs", "mtmfs", "tracefs", "cgroup", "fuse.gvfsd-fuse", "fuse.gvfs-fuse-daemon", "fdescfs", "overlay", "nsfs", "squashfs".
 
 ### disk_smb <a id="plugin-check-command-disk-smb"></a>
 
@@ -587,6 +600,8 @@ tests the HTTP service on the specified host. It can test normal (http) and secu
 (https) servers, follow redirects, search for strings and regular expressions,
 check connection times, and report on certificate expiration times.
 
+The plugin can either test the HTTP response of a server, or if `http_certificate` is set to a non-empty value, the TLS certificate age for a HTTPS host.
+
 Custom attributes passed as [command parameters](03-monitoring-basics.md#command-passing-parameters):
 
 Name                             | Description
@@ -834,7 +849,7 @@ negate_arguments      | **Optional.** Arguments for the negated command.
 
 ### nrpe <a id="plugin-check-command-nrpe"></a>
 
-The `check_nrpe` plugin can be used to query an [NRPE](https://docs.icinga.com/latest/en/nrpe.html)
+The `check_nrpe` plugin can be used to query an [NRPE](https://icinga.com/docs/icinga1/latest/en/nrpe.html)
 server or [NSClient++](https://www.nsclient.org). **Note**: This plugin
 is considered insecure/deprecated.
 
@@ -922,17 +937,6 @@ ntp_timeout     | **Optional.** Seconds before connection times out (default: 10
 ntp_ipv4        | **Optional.** Use IPv4 connection. Defaults to false.
 ntp_ipv6        | **Optional.** Use IPv6 connection. Defaults to false.
 
-
-### passive <a id="plugin-check-command-passive"></a>
-
-Specialised check command object for passive checks executing the `check_dummy` plugin with appropriate default values.
-
-Custom attributes passed as [command parameters](03-monitoring-basics.md#command-passing-parameters):
-
-Name            | Description
-----------------|--------------
-dummy_state     | **Optional.** The state. Can be one of 0 (ok), 1 (warning), 2 (critical) and 3 (unknown). Defaults to 3.
-dummy_text      | **Optional.** Plugin output. Defaults to "No Passive Check Result Received.".
 
 ### pgsql <a id="plugin-check-command-pgsql"></a>
 
@@ -1506,8 +1510,8 @@ Custom attributes:
 
 Name                  | Description
 :---------------------|:------------
-disk\_win\_warn       | **Optional**. The warning threshold.
-disk\_win\_crit       | **Optional**. The critical threshold.
+disk\_win\_warn       | **Optional**. The warning threshold. Defaults to "20%".
+disk\_win\_crit       | **Optional**. The critical threshold. Defaults to "10%".
 disk\_win\_path       | **Optional**. Check only these paths, default checks all.
 disk\_win\_unit       | **Optional**. Use this unit to display disk space, thresholds are interpreted in this unit. Defaults to "mb", possible values are: b, kb, mb, gb and tb.
 disk\_win\_exclude    | **Optional**. Exclude these drives from check.
@@ -1541,9 +1545,10 @@ Custom attributes:
 
 Name              | Description
 :-----------------|:------------
-memory\_win\_warn | **Optional**. The warning threshold.
-memory\_win\_crit | **Optional**. The critical threshold.
+memory\_win\_warn | **Optional**. The warning threshold. Defaults to "10%".
+memory\_win\_crit | **Optional**. The critical threshold. Defaults to "5%".
 memory\_win\_unit | **Optional**. The unit to display the received value in, thresholds are interpreted in this unit. Defaults to "mb" (megabyte), possible values are: b, kb, mb, gb and tb.
+memory\_win\_show\_used | **Optional**. Show used memory instead of the free memory.
 
 
 ### network-windows <a id="windows-plugins-network-windows"></a>
@@ -1630,12 +1635,12 @@ The data collection is instant.
 
 Custom attributes:
 
-Name            | Description
-:---------------|:------------
-swap\_win\_warn | **Optional**. The warning threshold.
-swap\_win\_crit | **Optional**. The critical threshold.
-swap\_win\_unit | **Optional**. The unit to display the received value in, thresholds are interpreted in this unit. Defaults to "mb" (megabyte).
-
+Name             | Description
+:--------------- | :------------
+swap\_win\_warn  | **Optional**. The warning threshold. Defaults to "10%".
+swap\_win\_crit  | **Optional**. The critical threshold. Defaults to "5%".
+swap\_win\_unit  | **Optional**. The unit to display the received value in, thresholds are interpreted in this unit. Defaults to "mb" (megabyte).
+swap\_win\_show\_used | **Optional**. Show used swap instead of the free swap.
 
 ### update-windows <a id="windows-plugins-update-windows"></a>
 
@@ -1696,12 +1701,16 @@ users\_win\_crit | **Optional**. The critical threshold.
 
 There are two methods available for querying NSClient++:
 
-* Query the [HTTP API](10-icinga-template-library.md#nscp-check-api) locally or remotely (requires a running NSClient++ service)
+* Query the [HTTP API](06-distributed-monitoring.md#distributed-monitoring-windows-nscp-check-api) locally from an Icinga 2 client (requires a running NSClient++ service)
 * Run a [local CLI check](10-icinga-template-library.md#nscp-check-local) (does not require NSClient++ as a service)
 
 Both methods have their advantages and disadvantages. One thing to
 note: If you rely on performance counter delta calculations such as
 CPU utilization, please use the HTTP API instead of the CLI sample call.
+
+For security reasons, it is advised to enable the NSClient++ HTTP API for local
+connection from the Icinga 2 client only. Remote connections to the HTTP API
+are not recommended with using the legacy HTTP API.
 
 ### nscp_api <a id="nscp-check-api"></a>
 
@@ -1779,6 +1788,12 @@ nscp_boot       | **Optional.** Whether to use the --boot option. Defaults to tr
 nscp_query      | **Required.** The NSClient++ query. Try `nscp client -q x` for a list.
 nscp_arguments  | **Optional.** An array of query arguments.
 nscp_showall	| **Optional.** Shows more details in plugin output, default to false.
+
+> **Tip**
+>
+> In order to measure CPU load, you'll need a running NSClient++ service.
+> Therefore it is advised to use a local [nscp-api](06-distributed-monitoring.md#distributed-monitoring-windows-nscp-check-api)
+> check against its REST API.
 
 ### nscp-local-cpu <a id="nscp-check-local-cpu"></a>
 
@@ -1881,6 +1896,25 @@ nscp_counter_arguments | **Optional.** Additional arguments.
 nscp_counter_showall   | **Optional.** Shows more details in plugin output, default to false.
 nscp_counter_perfsyntax | **Optional.** Apply performance data label, e.g. `Total Processor Time` to avoid special character problems. Defaults to `nscp_counter_name`.
 
+### nscp-local-tasksched <a id="nscp-check-local-tasksched"></a>
+
+Check Command object for the `check_tasksched` NSClient++ plugin.
+You can check for a single task or for a complete folder (and sub folders) of tasks.
+
+Name                   | Description
+-----------------------|------------------
+nscp_tasksched_name         | **Optional.** Name of the task to check.
+nscp_tasksched_folder       | **Optional.** The folder in which the tasks to check reside.
+nscp_tasksched_recursive    | **Optional.** Recurse sub folder, defaults to true.
+nscp_tasksched_hidden       | **Optional.** Look for hidden tasks, defaults to false.
+nscp_tasksched_warning      | **Optional.** Filter which marks items which generates a warning state, defaults to `exit_code != 0`.
+nscp_tasksched_critical     | **Optional.** Filter which marks items which generates a critical state, defaults to `exit_code < 0`.
+nscp_tasksched_emptystate   | **Optional.** Return status to use when nothing matched filter, defaults to warning.
+nscp_tasksched_perfsyntax   | **Optional.** Performance alias syntax., defaults to `%(title)`
+nscp_tasksched_detailsyntax | **Optional.** Detail level syntax, defaults to `%(folder)/%(title): %(exit_code) != 0`
+nscp_tasksched_arguments    | **Optional.** Additional arguments.
+nscp_tasksched_showall      | **Optional.** Shows more details in plugin output, default to false.
+nscp_modules                | **Optional.** An array of NSClient++ modules to load. Defaults to `[ "CheckTaskSched" ]`.
 
 
 ## Plugin Check Commands for Manubulon SNMP <a id="snmp-manubulon-plugin-check-commands"></a>
@@ -2153,6 +2187,28 @@ include <plugin-contrib>
 
 This is enabled by default since Icinga 2 2.5.0.
 
+### Big Data <a id="plugin-contrib-big-data"></a>
+
+This category contains plugins for various Big Data systems.
+
+#### cloudera_service_status <a id="plugin-contrib-command-cloudera_service_status"></a>
+
+The [cloudera_service_status](https://github.com/miso231/icinga2-cloudera-plugin) plugin
+uses Cloudera Manager API to monitor cluster services
+
+Custom attributes passed as [command parameters](03-monitoring-basics.md#command-passing-parameters):
+
+Name                  | Description
+----------------------|-----------------------------------------------------------------
+cloudera_host         | **Required.** Hostname of cloudera server.
+cloudera_port         | **Optional.** Port where cloudera is listening. Defaults to 443.
+cloudera_user         | **Required.** The username for the API connection.
+cloudera_pass         | **Required.** The password for the API connection.
+cloudera_api_version  | **Required.** API version of cloudera.
+cloudera_cluster      | **Required.** The cluster name in cloudera manager.
+cloudera_service      | **Required.** Name of cluster service to be checked.
+cloudera_verify_ssl   | **Optional.** Verify SSL. Defaults to true.
+
 ### Databases <a id="plugin-contrib-databases"></a>
 
 This category contains plugins for various database servers.
@@ -2169,7 +2225,7 @@ Custom attributes passed as [command parameters](03-monitoring-basics.md#command
 
 Name                             | Description
 ---------------------------------|------------------------------------------------------------------------------------------------------------------------------
-db2_health_database           | **Required.** The name of the database. (If it was catalogued locally, this parameter is the only you need. Otherwise you must specify database, hostname and port)
+db2_health_database           | **Required.** The name of the database. (If it was catalogued locally, this parameter and `db2_health_not_catalogued = false` are the only you need. Otherwise you must specify database, hostname and port)
 db2_health_username           | **Optional.** The username for the database connection.
 db2_health_password           | **Optional.** The password for the database connection.
 db2_health_port               | **Optional.** The port where DB2 is listening.
@@ -2185,6 +2241,7 @@ db2_health_maxinactivity      | **Optional.** Used for the maximum amount of tim
 db2_health_mitigation         | **Optional.** Classifies the severity of an offline tablespace.
 db2_health_lookback           | **Optional.** How many days in the past db2_health check should look back to calculate exitcode.
 db2_health_report             | **Optional.** Report can be used to output only the bad news. Possible values are "short", "long", "html". Defaults to `short`.
+db2_health_not_catalogued     | **Optional.** Set this variable to false if you want to use a catalogued locally database. Defaults to `true`.
 db2_health_env_db2_home       | **Required.** Specifies the location of the db2 client libraries as environment variable `DB2_HOME`. Defaults to "/opt/ibm/db2/V10.5".
 db2_health_env_db2_version    | **Optional.** Specifies the DB2 version as environment variable `DB2_VERSION`.
 
@@ -2486,7 +2543,7 @@ It uses the Dell OpenManage Server Administrator (OMSA) software, which must be 
 the monitored system. check_openmanage can be used remotely with SNMP or locally with icinga2 agent,
 check_by_ssh or similar, whichever suits your needs and particular taste.
 
-The plugin checks the health of the storage subsystem, power supplies, memory modules, 
+The plugin checks the health of the storage subsystem, power supplies, memory modules,
 temperature probes etc., and gives an alert if any of the components are faulty or operate outside normal parameters.
 
 Custom attributes passed as [command parameters](03-monitoring-basics.md#command-passing-parameters):
@@ -2540,8 +2597,29 @@ Custom attributes passed as [command parameters](03-monitoring-basics.md#command
 
 Name                            | Description
 --------------------------------|-----------------------------------------------------------------------
-lsi_controller_number           | **Required.** Controller number to monitor.
-storcli_path                    | **Required.** Path to the `storcli` binary, e.g. "/usr/sbin/storcli".
+lsi_controller_number           | **Optional.** Controller number to monitor.
+storcli_path                    | **Optional.** Path to the `storcli` binary, e.g. "/usr/sbin/storcli".
+lsi_enclosure_id                | **Optional.** Enclosure numbers to be checked, comma-separated.
+lsi_ld_id                       | **Optional.** Logical devices to be checked, comma-separated.
+lsi_pd_id                       | **Optional.** Physical devices to be checked, comma-separated.
+lsi_temp_warning                | **Optional.** RAID controller warning temperature.
+lsi_temp_critical               | **Optional.** RAID controller critical temperature.
+lsi_pd_temp_warning             | **Optional.** Disk warning temperature.
+lsi_pd_temp_critical            | **Optional.** Disk critical temperature.
+lsi_bbu_temp_warning            | **Optional.** Battery warning temperature.
+lsi_bbu_temp_critical           | **Optional.** Battery critical temperature.
+lsi_cv_temp_warning             | **Optional.** CacheVault warning temperature.
+lsi_cv_temp_critical            | **Optional.** CacheVault critical temperature.
+lsi_ignored_media_errors        | **Optional.** Warning threshold for media errors.
+lsi_ignored_other_errors        | **Optional.** Warning threshold for other errors.
+lsi_ignored_predictive_fails    | **Optional.** Warning threshold for predictive failures.
+lsi_ignored_shield_counters     | **Optional.** Warning threshold for shield counter.
+lsi_ignored_bbm_counters        | **Optional.** Warning threshold for BBM counter.
+lsi_bbu                         | **Optional.** Define if BBU is present and it's state should be checked.
+lsi_noenclosures                | **Optional.** If set to true, does not check enclosures.
+lsi_nosudo                      | **Optional.** If set to true, does not use sudo when running storcli.
+lsi_nocleanlogs                 | **Optional.** If set to true, does not clean up the log files after executing storcli checks.
+
 
 #### smart-attributes <a id="plugin-contrib-command-smart-attributes"></a>
 
@@ -3008,6 +3086,24 @@ glusterfs_disk_warning     | **Optional.** Warn if disk usage is above *DISKWARN
 glusterfs_disk_critical    | **Optional.** Return a critical error if disk usage is above *DISKCRIT*. Defaults to 95 (percent).
 glusterfs_inode_warning    | **Optional.** Warn if inode usage is above *DISKWARN*. Defaults to 90 (percent).
 glusterfs_inode_critical   | **Optional.** Return a critical error if inode usage is above *DISKCRIT*. Defaults to 95 (percent).
+
+#### ceph <a id="plugins-contrib-command-ceph"></a>
+
+The [ceph plugin](https://github.com/ceph/ceph-nagios-plugins)
+is used to check the Ceph storage health on the server.
+
+Custom attributes passed as [command parameters](03-monitoring-basics.md#command-passing-parameters):
+
+Name             | Description
+-----------------|---------------------------------------------------------
+ceph_exec_dir    | **Optional.** Ceph executable. Default /usr/bin/ceph.
+ceph_conf_file   | **Optional.** Alternative ceph conf file.
+ceph_mon_address | **Optional.** Ceph monitor address[:port].
+ceph_client_id   | **Optional.** Ceph client id.
+ceph_client_name | **Optional.** Ceph client name.
+ceph_client_key  | **Optional.** Ceph client keyring file.
+ceph_whitelist   | **Optional.** Whitelist regexp for ceph health warnings.
+ceph_details     | **Optional.** Run 'ceph health detail'.
 
 
 ### Virtualization <a id="plugin-contrib-virtualization"></a>
@@ -4086,6 +4182,9 @@ vmware_nosession        | **Optional.** No auth session -- IT SHOULD BE USED FOR
 vmware_username         | **Optional.** The username to connect to Host or vCenter server. No value defined as default.
 vmware_password         | **Optional.** The username's password. No value defined as default.
 vmware_authfile         | **Optional.** Use auth file instead username/password to session connect. No effect if **vmware_username** and **vmware_password** are defined <br> **Authentication file content:** <br>  username=vmuser <br> password=p@ssw0rd
+vmware_exclude          | **Optional.** Blacklist VMs name. No value defined as default.
+vmware_include          | **Optional.** Whitelist VMs name. No value defined as default.
+vmware_isregexp         | **Optional.** Treat blacklist and whitelist expressions as regexp.
 
 
 **vmware-esx-soap-host-runtime-con**
@@ -5058,7 +5157,7 @@ apache_status_warning	| **Optional.** Warning threshold (number of open slots, b
 apache_status_critical	| **Optional.** Critical threshold (number of open slots, busy workers and idle workers that will cause a CRITICAL) like ':10,25,:20'.
 
 
-### cert <a id="plugin-check-command-ssl_cert"></a>
+#### ssl_cert <a id="plugin-check-command-ssl_cert"></a>
 
 The [check_ssl_cert](https://github.com/matteocorti/check_ssl_cert) plugin
 uses the openssl binary (and optional curl) to check a X.509 certificate.

@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -75,6 +75,15 @@ void InfluxdbWriter::OnConfigLoaded()
 	ObjectImpl<InfluxdbWriter>::OnConfigLoaded();
 
 	m_WorkQueue.SetName("InfluxdbWriter, " + GetName());
+
+	if (!GetEnableHa()) {
+		Log(LogDebug, "InfluxdbWriter")
+			<< "HA functionality disabled. Won't pause connection: " << GetName();
+
+		SetHAMode(HARunEverywhere);
+	} else {
+		SetHAMode(HARunOnce);
+	}
 }
 
 void InfluxdbWriter::StatsFunc(const Dictionary::Ptr& status, const Array::Ptr& perfdata)
@@ -100,12 +109,12 @@ void InfluxdbWriter::StatsFunc(const Dictionary::Ptr& status, const Array::Ptr& 
 	status->Set("influxdbwriter", new Dictionary(std::move(nodes)));
 }
 
-void InfluxdbWriter::Start(bool runtimeCreated)
+void InfluxdbWriter::Resume()
 {
-	ObjectImpl<InfluxdbWriter>::Start(runtimeCreated);
+	ObjectImpl<InfluxdbWriter>::Resume();
 
 	Log(LogInformation, "InfluxdbWriter")
-		<< "'" << GetName() << "' started.";
+		<< "'" << GetName() << "' resumed.";
 
 	/* Register exception handler for WQ tasks. */
 	m_WorkQueue.SetExceptionCallback(std::bind(&InfluxdbWriter::ExceptionHandler, this, _1));
@@ -121,14 +130,14 @@ void InfluxdbWriter::Start(bool runtimeCreated)
 	Checkable::OnNewCheckResult.connect(std::bind(&InfluxdbWriter::CheckResultHandler, this, _1, _2));
 }
 
-void InfluxdbWriter::Stop(bool runtimeRemoved)
+void InfluxdbWriter::Pause()
 {
 	Log(LogInformation, "InfluxdbWriter")
-		<< "'" << GetName() << "' stopped.";
+		<< "'" << GetName() << "' paused.";
 
 	m_WorkQueue.Join();
 
-	ObjectImpl<InfluxdbWriter>::Stop(runtimeRemoved);
+	ObjectImpl<InfluxdbWriter>::Pause();
 }
 
 void InfluxdbWriter::AssertOnWorkQueue()
@@ -188,6 +197,9 @@ Stream::Ptr InfluxdbWriter::Connect()
 
 void InfluxdbWriter::CheckResultHandler(const Checkable::Ptr& checkable, const CheckResult::Ptr& cr)
 {
+	if (IsPaused())
+		return;
+
 	m_WorkQueue.Enqueue(std::bind(&InfluxdbWriter::CheckResultHandlerWQ, this, checkable, cr), PriorityLow);
 }
 
@@ -305,6 +317,17 @@ String InfluxdbWriter::EscapeKeyOrTagValue(const String& str)
 	boost::algorithm::replace_all(result, "=", "\\=");
 	boost::algorithm::replace_all(result, ",", "\\,");
 	boost::algorithm::replace_all(result, " ", "\\ ");
+
+	// InfluxDB 'feature': although backslashes are allowed in keys they also act
+	// as escape sequences when followed by ',' or ' '.  When your tag is like
+	// 'metric=C:\' bad things happen.  Backslashes themselves cannot be escaped
+	// and through experimentation they also escape '='.  To be safe we replace
+	// trailing backslashes with and underscore.
+	// See https://github.com/influxdata/influxdb/issues/8587 for more info
+	size_t length = result.GetLength();
+	if (result[length - 1] == '\\')
+		result[length - 1] = '_';
+
 	return result;
 }
 
@@ -408,7 +431,15 @@ void InfluxdbWriter::Flush()
 	String body = boost::algorithm::join(m_DataBuffer, "\n");
 	m_DataBuffer.clear();
 
-	Stream::Ptr stream = Connect();
+	Stream::Ptr stream;
+
+	try {
+		stream = Connect();
+	} catch (const std::exception& ex) {
+		Log(LogWarning, "InfluxDbWriter")
+			<< "Flush failed, cannot connect to InfluxDB: " << DiagnosticInformation(ex, false);
+		return;
+	}
 
 	if (!stream)
 		return;

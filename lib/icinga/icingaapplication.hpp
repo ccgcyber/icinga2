@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -46,11 +46,12 @@ public:
 
 	static IcingaApplication::Ptr GetInstance();
 
-	String GetPidPath() const;
-
 	bool ResolveMacro(const String& macro, const CheckResult::Ptr& cr, Value *result) const override;
 
 	String GetNodeName() const;
+
+	String GetEnvironment() const override;
+	void SetEnvironment(const String& value, bool suppress_events = false, const Value& cookie = Empty) override;
 
 	void ValidateVars(const Lazy<Dictionary::Ptr>& lvalue, const ValidationUtils& utils) override;
 

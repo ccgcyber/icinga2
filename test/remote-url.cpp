@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -95,6 +95,14 @@ BOOST_AUTO_TEST_CASE(format)
 
 	url = new Url("/");
 	BOOST_CHECK(url->Format(false, false) == "/");
+
+	url = new Url("https://nsclient:8443/query/check_cpu?time%5B%5D=1m&time=5m&time%5B%5D=15m");
+	url->SetArrayFormatUseBrackets(false);
+	BOOST_CHECK(url2 = new Url(url->Format(false, false)));
+
+	url = new Url("https://icinga2/query?a[]=1&a[]=2&a[]=3");
+	url->SetArrayFormatUseBrackets(true);
+	BOOST_CHECK(url2 = new Url(url->Format(false, false)));
 }
 
 BOOST_AUTO_TEST_CASE(illegal_legal_strings)

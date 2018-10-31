@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -30,6 +30,7 @@
 #include "base/workqueue.hpp"
 #include "base/tcpsocket.hpp"
 #include "base/tlsstream.hpp"
+#include "base/threadpool.hpp"
 #include <set>
 
 namespace icinga
@@ -79,7 +80,7 @@ public:
 	static void StatsFunc(const Dictionary::Ptr& status, const Array::Ptr& perfdata);
 	std::pair<Dictionary::Ptr, Dictionary::Ptr> GetStatus();
 
-	void AddAnonymousClient(const JsonRpcConnection::Ptr& aclient);
+	bool AddAnonymousClient(const JsonRpcConnection::Ptr& aclient);
 	void RemoveAnonymousClient(const JsonRpcConnection::Ptr& aclient);
 	std::set<JsonRpcConnection::Ptr> GetAnonymousClients() const;
 
@@ -108,6 +109,9 @@ public:
 	static String GetDefaultKeyPath();
 	static String GetDefaultCaPath();
 
+	double GetTlsHandshakeTimeout() const override;
+	void SetTlsHandshakeTimeout(double value, bool suppress_events, const Value& cookie) override;
+
 protected:
 	void OnConfigLoaded() override;
 	void OnAllConfigLoaded() override;
@@ -115,6 +119,7 @@ protected:
 	void Stop(bool runtimeDeleted) override;
 
 	void ValidateTlsProtocolmin(const Lazy<String>& lvalue, const ValidationUtils& utils) override;
+	void ValidateTlsHandshakeTimeout(const Lazy<double>& lvalue, const ValidationUtils& utils) override;
 
 private:
 	std::shared_ptr<SSL_CTX> m_SSLContext;
@@ -144,6 +149,9 @@ private:
 	void NewClientHandlerInternal(const Socket::Ptr& client, const String& hostname, ConnectionRole role);
 	void ListenerThreadProc(const Socket::Ptr& server);
 
+	static ThreadPool& GetTP();
+	static void EnqueueAsyncCallback(const std::function<void ()>& callback, SchedulerPolicy policy = DefaultScheduler);
+
 	WorkQueue m_RelayQueue;
 	WorkQueue m_SyncQueue{0, 4};
 
@@ -162,6 +170,9 @@ private:
 	void ReplayLog(const JsonRpcConnection::Ptr& client);
 
 	static void CopyCertificateFile(const String& oldCertPath, const String& newCertPath);
+
+	void UpdateStatusFile(TcpSocket::Ptr socket);
+	void RemoveStatusFile();
 
 	/* filesync */
 	static ConfigDirInformation LoadConfigDir(const String& dir);

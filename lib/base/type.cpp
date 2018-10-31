@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -19,12 +19,14 @@
 
 #include "base/type.hpp"
 #include "base/scriptglobal.hpp"
+#include "base/namespace.hpp"
 #include "base/objectlock.hpp"
 
 using namespace icinga;
 
 Type::Ptr Type::TypeInstance;
 
+/* Ensure that the priority is lower than the basic namespace initialization in scriptframe.cpp. */
 INITIALIZE_ONCE_WITH_PRIORITY([]() {
 	Type::Ptr type = new TypeType();
 	type->SetPrototype(TypeType::GetPrototype());
@@ -39,19 +41,19 @@ String Type::ToString() const
 
 void Type::Register(const Type::Ptr& type)
 {
-	VERIFY(!GetByName(type->GetName()));
-
-	ScriptGlobal::Set("Types." + type->GetName(), type);
+	ScriptGlobal::Set("Types." + type->GetName(), type, true);
 }
 
 Type::Ptr Type::GetByName(const String& name)
 {
-	Dictionary::Ptr typesNS = ScriptGlobal::Get("Types", &Empty);
+	Namespace::Ptr typesNS = ScriptGlobal::Get("Types", &Empty);
 
 	if (!typesNS)
 		return nullptr;
 
-	Value ptype = typesNS->Get(name);
+	Value ptype;
+	if (!typesNS->Get(name, &ptype))
+		return nullptr;
 
 	if (!ptype.IsObjectType<Type>())
 		return nullptr;
@@ -63,14 +65,16 @@ std::vector<Type::Ptr> Type::GetAllTypes()
 {
 	std::vector<Type::Ptr> types;
 
-	Dictionary::Ptr typesNS = ScriptGlobal::Get("Types", &Empty);
+	Namespace::Ptr typesNS = ScriptGlobal::Get("Types", &Empty);
 
 	if (typesNS) {
 		ObjectLock olock(typesNS);
 
-		for (const Dictionary::Pair& kv : typesNS) {
-			if (kv.second.IsObjectType<Type>())
-				types.push_back(kv.second);
+		for (const Namespace::Pair& kv : typesNS) {
+			Value value = kv.second->Get();
+
+			if (value.IsObjectType<Type>())
+				types.push_back(value);
 		}
 	}
 
@@ -152,6 +156,11 @@ Value Type::GetField(int id) const
 std::vector<String> Type::GetLoadDependencies() const
 {
 	return std::vector<String>();
+}
+
+int Type::GetActivationPriority() const
+{
+	return 0;
 }
 
 void Type::RegisterAttributeHandler(int fieldId, const AttributeHandler& callback)

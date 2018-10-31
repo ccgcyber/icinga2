@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -29,11 +29,14 @@
 
 using namespace icinga;
 
-REGISTER_SCRIPTFUNCTION_NS(Internal, ExceptionCheck, &ExceptionCheckTask::ScriptFunc, "checkable:cr:resolvedMacros:useResolvedMacros");
+REGISTER_FUNCTION_NONCONST(Internal, ExceptionCheck, &ExceptionCheckTask::ScriptFunc, "checkable:cr:resolvedMacros:useResolvedMacros");
 
-void ExceptionCheckTask::ScriptFunc(const Checkable::Ptr& service, const CheckResult::Ptr& cr,
+void ExceptionCheckTask::ScriptFunc(const Checkable::Ptr& checkable, const CheckResult::Ptr& cr,
 	const Dictionary::Ptr& resolvedMacros, bool useResolvedMacros)
 {
+	REQUIRE_NOT_NULL(checkable);
+	REQUIRE_NOT_NULL(cr);
+
 	if (resolvedMacros && !useResolvedMacros)
 		return;
 

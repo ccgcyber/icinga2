@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -27,7 +27,7 @@
 using namespace icinga;
 
 REGISTER_TYPE(PerfdataValue);
-REGISTER_SCRIPTFUNCTION_NS(System, parse_performance_data, PerfdataValue::Parse, "perfdata");
+REGISTER_FUNCTION(System, parse_performance_data, PerfdataValue::Parse, "perfdata");
 
 PerfdataValue::PerfdataValue(const String& label, double value, bool counter,
 	const String& unit, const Value& warn, const Value& crit, const Value& min,

@@ -1,7 +1,7 @@
 %{
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)  *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -180,7 +180,7 @@ this				return T_THIS;
 globals				return T_GLOBALS;
 locals				return T_LOCALS;
 use				return T_USE;
-__using				return T_USING;
+using				return T_USING;
 apply				return T_APPLY;
 default				return T_DEFAULT;
 to				return T_TO;
@@ -203,6 +203,7 @@ ignore_on_error			return T_IGNORE_ON_ERROR;
 current_filename		return T_CURRENT_FILENAME;
 current_line			return T_CURRENT_LINE;
 debugger			return T_DEBUGGER;
+namespace			return T_NAMESPACE;
 =\>				return T_FOLLOWS;
 \<\<				return T_SHIFT_LEFT;
 \>\>				return T_SHIFT_RIGHT;

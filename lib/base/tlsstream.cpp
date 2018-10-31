@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -21,11 +21,15 @@
 #include "base/utility.hpp"
 #include "base/exception.hpp"
 #include "base/logger.hpp"
+#include "base/configuration.hpp"
+#include "base/convert.hpp"
 #include <iostream>
 
 #ifndef _WIN32
 #	include <poll.h>
 #endif /* _WIN32 */
+
+#define TLS_TIMEOUT_SECONDS 10
 
 using namespace icinga;
 
@@ -155,6 +159,7 @@ void TlsStream::OnEvent(int revents)
 			m_CurrentAction = TlsActionWrite;
 		else {
 			ChangeEvents(POLLIN);
+
 			return;
 		}
 	}
@@ -166,6 +171,8 @@ void TlsStream::OnEvent(int revents)
 	 */
 	ERR_clear_error();
 
+	size_t readTotal = 0;
+
 	switch (m_CurrentAction) {
 		case TlsActionRead:
 			do {
@@ -174,8 +181,29 @@ void TlsStream::OnEvent(int revents)
 				if (rc > 0) {
 					m_RecvQ->Write(buffer, rc);
 					success = true;
+
+					readTotal += rc;
 				}
-			} while (rc > 0);
+
+#ifdef I2_DEBUG /* I2_DEBUG */
+				Log(LogDebug, "TlsStream")
+					<< "Read bytes: " << rc << " Total read bytes: " << readTotal;
+#endif /* I2_DEBUG */
+				/* Limit read size. We cannot do this check inside the while loop
+				 * since below should solely check whether OpenSSL has more data
+				 * or not. */
+				if (readTotal >= 64 * 1024) {
+#ifdef I2_DEBUG /* I2_DEBUG */
+					Log(LogWarning, "TlsStream")
+						<< "Maximum read bytes exceeded: " << readTotal;
+#endif /* I2_DEBUG */
+					break;
+				}
+
+			/* Use OpenSSL's state machine here to determine whether we need
+			 * to read more data. SSL_has_pending() is available with 1.1.0.
+			 */
+			} while (SSL_pending(m_SSL.get()));
 
 			if (success)
 				m_CV.notify_all();
@@ -285,8 +313,13 @@ void TlsStream::Handshake()
 	m_CurrentAction = TlsActionHandshake;
 	ChangeEvents(POLLOUT);
 
-	while (!m_HandshakeOK && !m_ErrorOccurred && !m_Eof)
-		m_CV.wait(lock);
+	boost::system_time const timeout = boost::get_system_time() + boost::posix_time::milliseconds(long(Configuration::TlsHandshakeTimeout * 1000));
+
+	while (!m_HandshakeOK && !m_ErrorOccurred && !m_Eof && timeout > boost::get_system_time())
+		m_CV.timed_wait(lock, timeout);
+
+	if (timeout < boost::get_system_time())
+		BOOST_THROW_EXCEPTION(std::runtime_error("Timeout was reached (" + Convert::ToString(Configuration::TlsHandshakeTimeout) + ") during TLS handshake."));
 
 	if (m_Eof)
 		BOOST_THROW_EXCEPTION(std::runtime_error("Socket was closed during TLS handshake."));
@@ -365,7 +398,20 @@ void TlsStream::CloseInternal(bool inDestructor)
 	if (!m_SSL)
 		return;
 
-	(void)SSL_shutdown(m_SSL.get());
+	/* https://www.openssl.org/docs/manmaster/man3/SSL_shutdown.html
+	 *
+	 * It is recommended to do a bidirectional shutdown by checking
+	 * the return value of SSL_shutdown() and call it again until
+	 * it returns 1 or a fatal error. A maximum of 2x pending + 2x data
+	 * is recommended.
+         */
+	int rc = 0;
+
+	for (int i = 0; i < 4; i++) {
+		if ((rc = SSL_shutdown(m_SSL.get())))
+			break;
+	}
+
 	m_SSL.reset();
 
 	m_Socket->Close();
@@ -376,7 +422,7 @@ void TlsStream::CloseInternal(bool inDestructor)
 
 bool TlsStream::IsEof() const
 {
-	return m_Eof;
+	return m_Eof && m_RecvQ->GetAvailableBytes() < 1u;
 }
 
 bool TlsStream::SupportsWaiting() const

@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -79,22 +79,22 @@ Dictionary::Ptr NotificationNameComposer::ParseName(const String& name) const
 
 void Notification::StaticInitialize()
 {
-	ScriptGlobal::Set("OK", "OK");
-	ScriptGlobal::Set("Warning", "Warning");
-	ScriptGlobal::Set("Critical", "Critical");
-	ScriptGlobal::Set("Unknown", "Unknown");
-	ScriptGlobal::Set("Up", "Up");
-	ScriptGlobal::Set("Down", "Down");
+	ScriptGlobal::Set("Icinga.OK", "OK", true);
+	ScriptGlobal::Set("Icinga.Warning", "Warning", true);
+	ScriptGlobal::Set("Icinga.Critical", "Critical", true);
+	ScriptGlobal::Set("Icinga.Unknown", "Unknown", true);
+	ScriptGlobal::Set("Icinga.Up", "Up", true);
+	ScriptGlobal::Set("Icinga.Down", "Down", true);
 
-	ScriptGlobal::Set("DowntimeStart", "DowntimeStart");
-	ScriptGlobal::Set("DowntimeEnd", "DowntimeEnd");
-	ScriptGlobal::Set("DowntimeRemoved", "DowntimeRemoved");
-	ScriptGlobal::Set("Custom", "Custom");
-	ScriptGlobal::Set("Acknowledgement", "Acknowledgement");
-	ScriptGlobal::Set("Problem", "Problem");
-	ScriptGlobal::Set("Recovery", "Recovery");
-	ScriptGlobal::Set("FlappingStart", "FlappingStart");
-	ScriptGlobal::Set("FlappingEnd", "FlappingEnd");
+	ScriptGlobal::Set("Icinga.DowntimeStart", "DowntimeStart", true);
+	ScriptGlobal::Set("Icinga.DowntimeEnd", "DowntimeEnd", true);
+	ScriptGlobal::Set("Icinga.DowntimeRemoved", "DowntimeRemoved", true);
+	ScriptGlobal::Set("Icinga.Custom", "Custom", true);
+	ScriptGlobal::Set("Icinga.Acknowledgement", "Acknowledgement", true);
+	ScriptGlobal::Set("Icinga.Problem", "Problem", true);
+	ScriptGlobal::Set("Icinga.Recovery", "Recovery", true);
+	ScriptGlobal::Set("Icinga.FlappingStart", "FlappingStart", true);
+	ScriptGlobal::Set("Icinga.FlappingEnd", "FlappingEnd", true);
 
 	m_StateFilterMap["OK"] = StateFilterOK;
 	m_StateFilterMap["Warning"] = StateFilterWarning;
@@ -320,8 +320,8 @@ void Notification::BeginExecuteNotification(NotificationType type, const CheckRe
 			return;
 		}
 
-		/* ensure that recovery notifications are always sent, no state filter checks necessary */
-		if (type != NotificationRecovery) {
+		/* Check state filters for problem notifications. Recovery notifications will be filtered away later. */
+		if (type == NotificationProblem) {
 			Host::Ptr host;
 			Service::Ptr service;
 			tie(host, service) = GetHostService(checkable);
@@ -402,9 +402,20 @@ void Notification::BeginExecuteNotification(NotificationType type, const CheckRe
 
 		/* on recovery, check if user was notified before */
 		if (type == NotificationRecovery) {
-			if (!notifiedProblemUsers->Contains(userName)) {
+			if (!notifiedProblemUsers->Contains(userName) && (NotificationProblem & user->GetTypeFilter())) {
 				Log(LogNotice, "Notification")
-					<< "We did not notify user '" << userName << "' for a problem before. Not sending recovery notification.";
+					<< "We did not notify user '" << userName
+					<< "' (Problem types enabled) for a problem before. Not sending recovery notification.";
+				continue;
+			}
+		}
+
+		/* on acknowledgement, check if user was notified before */
+		if (type == NotificationAcknowledgement) {
+			if (!notifiedProblemUsers->Contains(userName) && (NotificationProblem & user->GetTypeFilter())) {
+				Log(LogNotice, "Notification")
+					<< "We did not notify user '" << userName
+					<< "' (Problem types enabled) for a problem before. Not sending acknowledgement notification.";
 				continue;
 			}
 		}
@@ -524,7 +535,7 @@ void Notification::ExecuteNotificationHelper(NotificationType type, const User::
 			<< "' and user '" << user->GetName() << "'.";
 	} catch (const std::exception& ex) {
 		Log(LogWarning, "Notification")
-			<< "Exception occured during notification for checkable '"
+			<< "Exception occurred during notification for checkable '"
 			<< GetCheckable()->GetName() << "': " << DiagnosticInformation(ex);
 	}
 }

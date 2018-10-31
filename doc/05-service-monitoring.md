@@ -93,7 +93,7 @@ For further information on your monitoring configuration read the
 [Monitoring Basics](03-monitoring-basics.md#monitoring-basics) chapter.
 
 If you have created your own `CheckCommand` definition, please kindly
-[send it upstream](https://www.icinga.com/community/get-involved/).
+[send it upstream](https://github.com/Icinga/icinga2/blob/master/CONTRIBUTING.md).
 
 ### Plugin API <a id="service-monitoring-plugin-api"></a>
 
@@ -260,6 +260,8 @@ Instead, choose a plugin and configure its parameters and thresholds. The follow
 
 **Tip**: If you are encountering timeouts using the VMware Perl SDK,
 check [this blog entry](https://www.claudiokuenzler.com/blog/650/slow-vmware-perl-sdk-soap-request-error-libwww-version).
+Ubuntu 16.04 LTS can have troubles with random entropy in Perl asked [here](https://monitoring-portal.org/t/check-vmware-api-slow-when-run-multiple-times/2868).
+In that case, [haveged](http://issihosts.com/haveged/) may help.
 
 ### SAP Monitoring <a id="service-monitoring-sap"></a>
 

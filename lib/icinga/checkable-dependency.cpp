@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -61,9 +61,12 @@ std::vector<Dependency::Ptr> Checkable::GetReverseDependencies() const
 
 bool Checkable::IsReachable(DependencyType dt, Dependency::Ptr *failedDependency, int rstack) const
 {
-	if (rstack > 20) {
+	/* Anything greater than 256 causes recursion bus errors. */
+	int limit = 256;
+
+	if (rstack > limit) {
 		Log(LogWarning, "Checkable")
-			<< "Too many nested dependencies for service '" << GetName() << "': Dependency failed.";
+			<< "Too many nested dependencies (>" << limit << ") for checkable '" << GetName() << "': Dependency failed.";
 
 		return false;
 	}

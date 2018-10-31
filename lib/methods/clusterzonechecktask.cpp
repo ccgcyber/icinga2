@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -29,11 +29,14 @@
 
 using namespace icinga;
 
-REGISTER_SCRIPTFUNCTION_NS(Internal, ClusterZoneCheck, &ClusterZoneCheckTask::ScriptFunc, "checkable:cr:resolvedMacros:useResolvedMacros");
+REGISTER_FUNCTION_NONCONST(Internal, ClusterZoneCheck, &ClusterZoneCheckTask::ScriptFunc, "checkable:cr:resolvedMacros:useResolvedMacros");
 
 void ClusterZoneCheckTask::ScriptFunc(const Checkable::Ptr& checkable, const CheckResult::Ptr& cr,
 	const Dictionary::Ptr& resolvedMacros, bool useResolvedMacros)
 {
+	REQUIRE_NOT_NULL(checkable);
+	REQUIRE_NOT_NULL(cr);
+
 	ApiListener::Ptr listener = ApiListener::GetInstance();
 
 	if (!listener) {
@@ -119,23 +122,23 @@ void ClusterZoneCheckTask::ScriptFunc(const Checkable::Ptr& checkable, const Che
 		bytesReceivedPerSecond += endpoint->GetBytesReceivedPerSecond();
 	}
 
-	if (!connected) {
-		cr->SetState(ServiceCritical);
-		cr->SetOutput("Zone '" + zoneName + "' is not connected. Log lag: " + Utility::FormatDuration(zoneLag));
-	} else {
+	if (connected) {
 		cr->SetState(ServiceOK);
 		cr->SetOutput("Zone '" + zoneName + "' is connected. Log lag: " + Utility::FormatDuration(zoneLag));
-	}
 
-	/* Check whether the thresholds have been resolved and compare them */
-	if (missingLagCritical.IsEmpty() && zoneLag > lagCritical) {
+		/* Check whether the thresholds have been resolved and compare them */
+		if (missingLagCritical.IsEmpty() && zoneLag > lagCritical) {
+			cr->SetState(ServiceCritical);
+			cr->SetOutput("Zone '" + zoneName + "' is connected. Log lag: " + Utility::FormatDuration(zoneLag)
+				+ " greater than critical threshold: " + Utility::FormatDuration(lagCritical));
+		} else if (missingLagWarning.IsEmpty() && zoneLag > lagWarning) {
+			cr->SetState(ServiceWarning);
+			cr->SetOutput("Zone '" + zoneName + "' is connected. Log lag: " + Utility::FormatDuration(zoneLag)
+				+ " greater than warning threshold: " + Utility::FormatDuration(lagWarning));
+		}
+	} else {
 		cr->SetState(ServiceCritical);
-		cr->SetOutput("Zone '" + zoneName + "' is connected. Log lag: " + Utility::FormatDuration(zoneLag)
-			+ " greater than critical threshold: " + Utility::FormatDuration(lagCritical));
-	} else if (missingLagWarning.IsEmpty() && zoneLag > lagWarning) {
-		cr->SetState(ServiceWarning);
-		cr->SetOutput("Zone '" + zoneName + "' is connected. Log lag: " + Utility::FormatDuration(zoneLag)
-			+ " greater than warning threshold: " + Utility::FormatDuration(lagWarning));
+		cr->SetOutput("Zone '" + zoneName + "' is not connected. Log lag: " + Utility::FormatDuration(zoneLag));
 	}
 
 	cr->SetPerformanceData(new Array({

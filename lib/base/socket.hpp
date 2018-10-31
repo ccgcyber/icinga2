@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -45,7 +45,9 @@ public:
 
 	void Close();
 
+	std::pair<String, String> GetClientAddressDetails();
 	String GetClientAddress();
+	std::pair<String, String> GetPeerAddressDetails();
 	String GetPeerAddress();
 
 	size_t Read(void *buffer, size_t size);
@@ -70,7 +72,8 @@ protected:
 private:
 	SOCKET m_FD{INVALID_SOCKET}; /**< The socket descriptor. */
 
-	static String GetAddressFromSockaddr(sockaddr *address, socklen_t len);
+	static std::pair<String, String> GetDetailsFromSockaddr(sockaddr *address, socklen_t len);
+	static String GetHumanReadableAddress(const std::pair<String, String>& socketDetails);
 };
 
 class socket_error : virtual public std::exception, virtual public boost::exception { };

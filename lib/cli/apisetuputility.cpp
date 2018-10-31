@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -40,7 +40,12 @@ using namespace icinga;
 
 String ApiSetupUtility::GetConfdPath()
 {
-		return Application::GetSysconfDir() + "/icinga2/conf.d";
+	return Configuration::ConfigDir + "/conf.d";
+}
+
+String ApiSetupUtility::GetApiUsersConfPath()
+{
+	return ApiSetupUtility::GetConfdPath() + "/api-users.conf";
 }
 
 bool ApiSetupUtility::SetupMaster(const String& cn, bool prompt_restart)
@@ -75,8 +80,8 @@ bool ApiSetupUtility::SetupMasterCertificates(const String& cn)
 	String pki_path = ApiListener::GetCertsDir();
 	Utility::MkDirP(pki_path, 0700);
 
-	String user = ScriptGlobal::Get("RunAsUser");
-	String group = ScriptGlobal::Get("RunAsGroup");
+	String user = Configuration::RunAsUser;
+	String group = Configuration::RunAsGroup;
 
 	if (!Utility::SetFileOwnership(pki_path, user, group)) {
 		Log(LogWarning, "cli")
@@ -166,7 +171,7 @@ bool ApiSetupUtility::SetupMasterApiUser()
 	String tempFilename = Utility::CreateTempFile(apiUsersPath + ".XXXXXX", 0644, fp);
 
 	fp << "/**\n"
-		<< " * The APIUser objects are used for authentication against the API.\n"
+		<< " * The ApiUser objects are used for authentication against the API.\n"
 		<< " */\n"
 		<< "object ApiUser \"" << api_username << "\" {\n"
 		<< "  password = \"" << api_password << "\"\n"

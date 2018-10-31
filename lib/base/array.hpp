@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -55,9 +55,9 @@ public:
 	Array(std::initializer_list<Value> init);
 
 	Value Get(SizeType index) const;
-	void Set(SizeType index, const Value& value);
-	void Set(SizeType index, Value&& value);
-	void Add(Value value);
+	void Set(SizeType index, const Value& value, bool overrideFrozen = false);
+	void Set(SizeType index, Value&& value, bool overrideFrozen = false);
+	void Add(Value value, bool overrideFrozen = false);
 
 	Iterator Begin();
 	Iterator End();
@@ -65,14 +65,14 @@ public:
 	size_t GetLength() const;
 	bool Contains(const Value& value) const;
 
-	void Insert(SizeType index, Value value);
-	void Remove(SizeType index);
-	void Remove(Iterator it);
+	void Insert(SizeType index, Value value, bool overrideFrozen = false);
+	void Remove(SizeType index, bool overrideFrozen = false);
+	void Remove(Iterator it, bool overrideFrozen = false);
 
-	void Resize(SizeType newSize);
-	void Clear();
+	void Resize(SizeType newSize, bool overrideFrozen = false);
+	void Clear(bool overrideFrozen = false);
 
-	void Reserve(SizeType newSize);
+	void Reserve(SizeType newSize, bool overrideFrozen = false);
 
 	void CopyTo(const Array::Ptr& dest) const;
 	Array::Ptr ShallowClone() const;
@@ -108,15 +108,19 @@ public:
 
 	Array::Ptr Reverse() const;
 
-	void Sort();
+	void Sort(bool overrideFrozen = false);
 
 	String ToString() const override;
 
+	Array::Ptr Unique() const;
+	void Freeze();
+
 	Value GetFieldByName(const String& field, bool sandboxed, const DebugInfo& debugInfo) const override;
-	void SetFieldByName(const String& field, const Value& value, const DebugInfo& debugInfo) override;
+	void SetFieldByName(const String& field, const Value& value, bool overrideFrozen, const DebugInfo& debugInfo) override;
 
 private:
 	std::vector<Value> m_Data; /**< The data for the array. */
+	bool m_Frozen{false};
 };
 
 Array::Iterator begin(const Array::Ptr& x);

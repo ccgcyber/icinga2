@@ -1,5 +1,5 @@
 # Icinga 2
-# Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)
+# Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -49,7 +49,7 @@ set(icinga_SOURCES
   checkcommand.cpp checkcommand.hpp checkcommand-ti.hpp
   checkresult.cpp checkresult.hpp checkresult-ti.hpp
   cib.cpp cib.hpp
-  clusterevents.cpp clusterevents.hpp
+  clusterevents.cpp clusterevents.hpp clusterevents-check.cpp
   command.cpp command.hpp command-ti.hpp
   comment.cpp comment.hpp comment-ti.hpp
   compatutility.cpp compatutility.hpp

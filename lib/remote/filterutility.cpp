@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -21,6 +21,7 @@
 #include "remote/httputility.hpp"
 #include "config/configcompiler.hpp"
 #include "config/expression.hpp"
+#include "base/namespace.hpp"
 #include "base/json.hpp"
 #include "base/configtype.hpp"
 #include "base/logger.hpp"
@@ -95,16 +96,20 @@ bool FilterUtility::EvaluateFilter(ScriptFrame& frame, Expression *filter,
 	else
 		varName = variableName;
 
-	Dictionary::Ptr vars;
+	Namespace::Ptr frameNS;
 
 	if (frame.Self.IsEmpty()) {
-		vars = new Dictionary();
-		frame.Self = vars;
-	} else
-		vars = frame.Self;
+		frameNS = new Namespace();
+		frame.Self = frameNS;
+	} else {
+		/* Enforce a namespace object for 'frame.self'. */
+		ASSERT(frame.Self.IsObjectType<Namespace>());
 
-	vars->Set("obj", target);
-	vars->Set(varName, target);
+		frameNS = frame.Self;
+	}
+
+	frameNS->Set("obj", target);
+	frameNS->Set(varName, target);
 
 	for (int fid = 0; fid < type->GetFieldCount(); fid++) {
 		Field field = type->GetFieldInfo(fid);
@@ -115,9 +120,9 @@ bool FilterUtility::EvaluateFilter(ScriptFrame& frame, Expression *filter,
 		Object::Ptr joinedObj = target->NavigateField(fid);
 
 		if (field.NavigationName)
-			vars->Set(field.NavigationName, joinedObj);
+			frameNS->Set(field.NavigationName, joinedObj);
 		else
-			vars->Set(field.Name, joinedObj);
+			frameNS->Set(field.Name, joinedObj);
 	}
 
 	return Convert::ToBool(filter->Evaluate(frame));
@@ -126,8 +131,11 @@ bool FilterUtility::EvaluateFilter(ScriptFrame& frame, Expression *filter,
 static void FilteredAddTarget(ScriptFrame& permissionFrame, Expression *permissionFilter,
 	ScriptFrame& frame, Expression *ufilter, std::vector<Value>& result, const String& variableName, const Object::Ptr& target)
 {
-	if (FilterUtility::EvaluateFilter(permissionFrame, permissionFilter, target, variableName) && FilterUtility::EvaluateFilter(frame, ufilter, target, variableName))
-		result.emplace_back(target);
+	if (FilterUtility::EvaluateFilter(permissionFrame, permissionFilter, target, variableName)) {
+		if (FilterUtility::EvaluateFilter(frame, ufilter, target, variableName)) {
+			result.emplace_back(std::move(target));
+		}
+	}
 }
 
 void FilterUtility::CheckPermission(const ApiUser::Ptr& user, const String& permission, Expression **permissionFilter)
@@ -206,7 +214,7 @@ std::vector<Value> FilterUtility::GetFilterTargets(const QueryDescription& qd, c
 		if (attr == "type")
 			attr = "name";
 
-		if (query->Contains(attr)) {
+		if (query && query->Contains(attr)) {
 			String name = HttpUtility::GetLastParameter(query, attr);
 			Object::Ptr target = provider->GetTargetByName(type, name);
 
@@ -219,7 +227,7 @@ std::vector<Value> FilterUtility::GetFilterTargets(const QueryDescription& qd, c
 		attr = provider->GetPluralName(type);
 		boost::algorithm::to_lower(attr);
 
-		if (query->Contains(attr)) {
+		if (query && query->Contains(attr)) {
 			Array::Ptr names = query->Get(attr);
 			if (names) {
 				ObjectLock olock(names);
@@ -235,7 +243,7 @@ std::vector<Value> FilterUtility::GetFilterTargets(const QueryDescription& qd, c
 		}
 	}
 
-	if (query->Contains("filter") || result.empty()) {
+	if ((query && query->Contains("filter")) || result.empty()) {
 		if (!query->Contains("type"))
 			BOOST_THROW_EXCEPTION(std::invalid_argument("Type must be specified when using a filter."));
 
@@ -249,28 +257,33 @@ std::vector<Value> FilterUtility::GetFilterTargets(const QueryDescription& qd, c
 
 		ScriptFrame frame(true);
 		frame.Sandboxed = true;
-		Dictionary::Ptr uvars = new Dictionary();
-
-		std::unique_ptr<Expression> ufilter;
+		Namespace::Ptr frameNS = new Namespace();
 
 		if (query->Contains("filter")) {
 			String filter = HttpUtility::GetLastParameter(query, "filter");
-			ufilter = ConfigCompiler::CompileText("<API query>", filter);
-		}
+			std::unique_ptr<Expression> ufilter = ConfigCompiler::CompileText("<API query>", filter);
 
-		Dictionary::Ptr filter_vars = query->Get("filter_vars");
-		if (filter_vars) {
-			ObjectLock olock(filter_vars);
-			for (const Dictionary::Pair& kv : filter_vars) {
-				uvars->Set(kv.first, kv.second);
+			Dictionary::Ptr filter_vars = query->Get("filter_vars");
+			if (filter_vars) {
+				ObjectLock olock(filter_vars);
+				for (const Dictionary::Pair& kv : filter_vars) {
+					frameNS->Set(kv.first, kv.second);
+				}
 			}
+
+			frame.Self = frameNS;
+
+			provider->FindTargets(type, std::bind(&FilteredAddTarget,
+				std::ref(permissionFrame), permissionFilter,
+				std::ref(frame), &*ufilter, std::ref(result), variableName, _1));
+		} else {
+			/* Ensure to pass a nullptr as filter expression.
+			 * GCC 8.1.1 on F28 causes problems, see GH #6533.
+			 */
+			provider->FindTargets(type, std::bind(&FilteredAddTarget,
+				std::ref(permissionFrame), permissionFilter,
+				std::ref(frame), nullptr, std::ref(result), variableName, _1));
 		}
-
-		frame.Self = uvars;
-
-		provider->FindTargets(type, std::bind(&FilteredAddTarget,
-			std::ref(permissionFrame), permissionFilter,
-			std::ref(frame), &*ufilter, std::ref(result), variableName, _1));
 	}
 
 	return result;

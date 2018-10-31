@@ -1,6 +1,6 @@
 /******************************************************************************
 * Icinga 2                                                                   *
-* Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+* Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
 *                                                                            *
 * This program is free software; you can redistribute it and/or              *
 * modify it under the terms of the GNU General Public License                *
@@ -17,29 +17,6 @@
 * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.             *
 ******************************************************************************/
 
-#include "icinga/icingaapplication.hpp"
-#include "base/application.hpp"
+#define BOOST_TEST_MAIN
+
 #include <BoostTestTargetConfig.h>
-
-using namespace icinga;
-
-static bool init_unit_test()
-{
-	return true;
-}
-
-int main(int argc, char *argv[])
-{
-	Application::InitializeBase();
-
-	IcingaApplication::Ptr appInst;
-
-	appInst = new IcingaApplication();
-	static_pointer_cast<ConfigObject>(appInst)->OnConfigLoaded();
-
-	int rc = boost::unit_test::unit_test_main(&init_unit_test, argc, argv);
-
-	appInst.reset();
-
-	Application::Exit(rc);
-}

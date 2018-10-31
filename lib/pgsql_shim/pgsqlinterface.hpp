@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -50,6 +50,7 @@ struct PgsqlInterface
 	virtual ExecStatusType resultStatus(const PGresult *res) const = 0;
 	virtual int serverVersion(const PGconn *conn) const = 0;
 	virtual PGconn *setdbLogin(const char *pghost, const char *pgport, const char *pgoptions, const char *pgtty, const char *dbName, const char *login, const char *pwd) const = 0;
+	virtual PGconn *connectdb(const char *conninfo) const = 0;
 	virtual ConnStatusType status(const PGconn *conn) const = 0;
 
 protected:

@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -122,8 +122,10 @@ public:
 
 	/**
 	 * Waits until data can be read from the stream.
+	 * Optionally with a timeout.
 	 */
-	bool WaitForData(int timeout = -1);
+	bool WaitForData();
+	bool WaitForData(int timeout);
 
 	virtual bool SupportsWaiting() const;
 

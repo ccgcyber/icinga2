@@ -1,5 +1,5 @@
 # Icinga 2
-# Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)
+# Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -19,5 +19,5 @@ add_subdirectory(plugins-contrib.d)
 
 install(
   FILES itl command-icinga.conf hangman plugins command-plugins.conf manubulon command-plugins-manubulon.conf windows-plugins command-plugins-windows.conf nscp command-nscp-local.conf plugins-contrib
-  DESTINATION ${CMAKE_INSTALL_DATADIR}/icinga2/include
+  DESTINATION ${ICINGA2_INCLUDEDIR}
 )

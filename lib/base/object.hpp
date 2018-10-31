@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -23,6 +23,7 @@
 #include "base/i2-base.hpp"
 #include "base/debug.hpp"
 #include <boost/smart_ptr/intrusive_ptr.hpp>
+#include <cstddef>
 #include <vector>
 
 using boost::intrusive_ptr;
@@ -56,6 +57,10 @@ extern Value Empty;
 #define DECLARE_OBJECT(klass) \
 	DECLARE_PTR_TYPEDEFS(klass); \
 	IMPL_TYPE_LOOKUP();
+
+#define REQUIRE_NOT_NULL(ptr) RequireNotNullInternal(ptr, #ptr)
+
+void RequireNotNullInternal(const intrusive_ptr<Object>& object, const char *description);
 
 void DefaultObjectFactoryCheckArgs(const std::vector<Value>& args);
 
@@ -178,7 +183,7 @@ public:
 	virtual void SetField(int id, const Value& value, bool suppress_events = false, const Value& cookie = Empty);
 	virtual Value GetField(int id) const;
 	virtual Value GetFieldByName(const String& field, bool sandboxed, const DebugInfo& debugInfo) const;
-	virtual void SetFieldByName(const String& field, const Value& value, const DebugInfo& debugInfo);
+	virtual void SetFieldByName(const String& field, const Value& value, bool overrideFrozen, const DebugInfo& debugInfo);
 	virtual bool HasOwnField(const String& field) const;
 	virtual bool GetOwnField(const String& field, Value *result) const;
 	virtual void ValidateField(int id, const Lazy<Value>& lvalue, const ValidationUtils& utils);
@@ -208,6 +213,7 @@ private:
 #	else /* _WIN32 */
 	mutable DWORD m_LockOwner;
 #	endif /* _WIN32 */
+	mutable size_t m_LockCount = 0;
 #endif /* I2_DEBUG */
 
 	friend struct ObjectLock;

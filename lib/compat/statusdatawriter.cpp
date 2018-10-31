@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -76,6 +76,9 @@ void StatusDataWriter::Start(bool runtimeCreated)
 
 	Log(LogInformation, "StatusDataWriter")
 		<< "'" << GetName() << "' started.";
+
+	Log(LogWarning, "StatusDataWriter")
+		<< "The StatusDataWriter feature is DEPRECATED and will be removed in Icinga v2.11.";
 
 	m_ObjectsCacheOutdated = true;
 
@@ -391,7 +394,7 @@ void StatusDataWriter::DumpCheckableStatusAttrs(std::ostream& fp, const Checkabl
 		"\t" "last_state_change=" << static_cast<long>(checkable->GetLastStateChange()) << "\n"
 		"\t" "last_hard_state_change=" << static_cast<long>(checkable->GetLastHardStateChange()) << "\n"
 		"\t" "last_update=" << static_cast<long>(Utility::GetTime()) << "\n"
-		"\t" "notifications_enabled" "\t" << Convert::ToLong(checkable->GetEnableNotifications()) << "\n"
+		"\t" "notifications_enabled=" << Convert::ToLong(checkable->GetEnableNotifications()) << "\n"
 		"\t" "active_checks_enabled=" << Convert::ToLong(checkable->GetEnableActiveChecks()) << "\n"
 		"\t" "passive_checks_enabled=" << Convert::ToLong(checkable->GetEnablePassiveChecks()) << "\n"
 		"\t" "flap_detection_enabled=" << Convert::ToLong(checkable->GetEnableFlapping()) << "\n"
@@ -556,6 +559,7 @@ void StatusDataWriter::UpdateObjectsCache()
 {
 	CONTEXT("Writing objects.cache file");
 
+	/* Use the compat path here from the .ti generated class. */
 	String objectsPath = GetObjectsPath();
 
 	std::fstream objectfp;

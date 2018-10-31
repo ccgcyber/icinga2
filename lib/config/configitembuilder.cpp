@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -31,6 +31,7 @@ ConfigItemBuilder::ConfigItemBuilder(const DebugInfo& debugInfo)
 
 void ConfigItemBuilder::SetType(const Type::Ptr& type)
 {
+	ASSERT(type);
 	m_Type = type;
 }
 

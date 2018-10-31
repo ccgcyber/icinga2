@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -49,6 +49,15 @@ void ElasticsearchWriter::OnConfigLoaded()
 	ObjectImpl<ElasticsearchWriter>::OnConfigLoaded();
 
 	m_WorkQueue.SetName("ElasticsearchWriter, " + GetName());
+
+	if (!GetEnableHa()) {
+		Log(LogDebug, "ElasticsearchWriter")
+			<< "HA functionality disabled. Won't pause connection: " << GetName();
+
+		SetHAMode(HARunEverywhere);
+	} else {
+		SetHAMode(HARunOnce);
+	}
 }
 
 void ElasticsearchWriter::StatsFunc(const Dictionary::Ptr& status, const Array::Ptr& perfdata)
@@ -71,14 +80,14 @@ void ElasticsearchWriter::StatsFunc(const Dictionary::Ptr& status, const Array::
 	status->Set("elasticsearchwriter", new Dictionary(std::move(nodes)));
 }
 
-void ElasticsearchWriter::Start(bool runtimeCreated)
+void ElasticsearchWriter::Resume()
 {
-	ObjectImpl<ElasticsearchWriter>::Start(runtimeCreated);
+	ObjectImpl<ElasticsearchWriter>::Resume();
 
 	m_EventPrefix = "icinga2.event.";
 
 	Log(LogInformation, "ElasticsearchWriter")
-		<< "'" << GetName() << "' started.";
+		<< "'" << GetName() << "' resumed.";
 
 	m_WorkQueue.SetExceptionCallback(std::bind(&ElasticsearchWriter::ExceptionHandler, this, _1));
 
@@ -95,14 +104,14 @@ void ElasticsearchWriter::Start(bool runtimeCreated)
 	Checkable::OnNotificationSentToAllUsers.connect(std::bind(&ElasticsearchWriter::NotificationSentToAllUsersHandler, this, _1, _2, _3, _4, _5, _6, _7));
 }
 
-void ElasticsearchWriter::Stop(bool runtimeRemoved)
+void ElasticsearchWriter::Pause()
 {
 	Log(LogInformation, "ElasticsearchWriter")
-		<< "'" << GetName() << "' stopped.";
+		<< "'" << GetName() << "' paused.";
 
 	m_WorkQueue.Join();
 
-	ObjectImpl<ElasticsearchWriter>::Stop(runtimeRemoved);
+	ObjectImpl<ElasticsearchWriter>::Pause();
 }
 
 void ElasticsearchWriter::AddCheckResult(const Dictionary::Ptr& fields, const Checkable::Ptr& checkable, const CheckResult::Ptr& cr)
@@ -145,6 +154,7 @@ void ElasticsearchWriter::AddCheckResult(const Dictionary::Ptr& fields, const Ch
 					Log(LogWarning, "ElasticsearchWriter")
 						<< "Ignoring invalid perfdata value: '" << val << "' for object '"
 						<< checkable->GetName() << "'.";
+					continue;
 				}
 			}
 
@@ -166,12 +176,18 @@ void ElasticsearchWriter::AddCheckResult(const Dictionary::Ptr& fields, const Ch
 				fields->Set(perfdataPrefix + ".warn", pdv->GetWarn());
 			if (pdv->GetCrit())
 				fields->Set(perfdataPrefix + ".crit", pdv->GetCrit());
+
+			if (!pdv->GetUnit().IsEmpty())
+				fields->Set(perfdataPrefix + ".unit", pdv->GetUnit());
 		}
 	}
 }
 
 void ElasticsearchWriter::CheckResultHandler(const Checkable::Ptr& checkable, const CheckResult::Ptr& cr)
 {
+	if (IsPaused())
+		return;
+
 	m_WorkQueue.Enqueue(std::bind(&ElasticsearchWriter::InternalCheckResultHandler, this, checkable, cr));
 }
 
@@ -226,6 +242,9 @@ void ElasticsearchWriter::InternalCheckResultHandler(const Checkable::Ptr& check
 
 void ElasticsearchWriter::StateChangeHandler(const Checkable::Ptr& checkable, const CheckResult::Ptr& cr, StateType type)
 {
+	if (IsPaused())
+		return;
+
 	m_WorkQueue.Enqueue(std::bind(&ElasticsearchWriter::StateChangeHandlerInternal, this, checkable, cr, type));
 }
 
@@ -275,6 +294,9 @@ void ElasticsearchWriter::NotificationSentToAllUsersHandler(const Notification::
 	const Checkable::Ptr& checkable, const std::set<User::Ptr>& users, NotificationType type,
 	const CheckResult::Ptr& cr, const String& author, const String& text)
 {
+	if (IsPaused())
+		return;
+
 	m_WorkQueue.Enqueue(std::bind(&ElasticsearchWriter::NotificationSentToAllUsersHandlerInternal, this,
 		notification, checkable, users, type, cr, author, text));
 }
@@ -349,11 +371,10 @@ void ElasticsearchWriter::Enqueue(const String& type, const Dictionary::Ptr& fie
 	String eventType = m_EventPrefix + type;
 	fields->Set("type", eventType);
 
-	/* Every payload needs a line describing the index above.
+	/* Every payload needs a line describing the index.
 	 * We do it this way to avoid problems with a near full queue.
 	 */
-
-	String indexBody = R"({ "index" : { "_type" : ")" + eventType + "\" } }\n";
+	String indexBody = "{\"index\": {} }\n";
 	String fieldsBody = JsonEncode(fields);
 
 	Log(LogDebug, "ElasticsearchWriter")
@@ -415,12 +436,29 @@ void ElasticsearchWriter::SendRequest(const String& body)
 	 */
 	path.emplace_back(GetIndex() + "-" + Utility::FormatDateTime("%Y.%m.%d", Utility::GetTime()));
 
+	/* ES 6 removes multiple _type mappings: https://www.elastic.co/guide/en/elasticsearch/reference/6.x/removal-of-types.html
+	 * Best practice is to statically define 'doc', as ES 5.X does not allow types starting with '_'.
+	 */
+	path.emplace_back("doc");
+
 	/* Use the bulk message format. */
 	path.emplace_back("_bulk");
 
 	url->SetPath(path);
 
-	Stream::Ptr stream = Connect();
+	Stream::Ptr stream;
+
+	try {
+		stream = Connect();
+	} catch (const std::exception& ex) {
+		Log(LogWarning, "ElasticsearchWriter")
+			<< "Flush failed, cannot connect to Elasticsearch: " << DiagnosticInformation(ex, false);
+		return;
+	}
+
+	if (!stream)
+		return;
+
 	HttpRequest req(stream);
 
 	/* Specify required headers by Elasticsearch. */

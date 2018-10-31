@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -32,7 +32,7 @@ using namespace icinga;
 
 void PluginUtility::ExecuteCommand(const Command::Ptr& commandObj, const Checkable::Ptr& checkable,
 	const CheckResult::Ptr& cr, const MacroProcessor::ResolverList& macroResolvers,
-	const Dictionary::Ptr& resolvedMacros, bool useResolvedMacros,
+	const Dictionary::Ptr& resolvedMacros, bool useResolvedMacros, int timeout,
 	const std::function<void(const Value& commandLine, const ProcessResult&)>& callback)
 {
 	Value raw_command = commandObj->GetCommandLine();
@@ -70,9 +70,16 @@ void PluginUtility::ExecuteCommand(const Command::Ptr& commandObj, const Checkab
 		for (const Dictionary::Pair& kv : env) {
 			String name = kv.second;
 
+			String missingMacro;
 			Value value = MacroProcessor::ResolveMacros(name, macroResolvers, cr,
-				nullptr, MacroProcessor::EscapeCallback(), resolvedMacros,
+				&missingMacro, MacroProcessor::EscapeCallback(), resolvedMacros,
 				useResolvedMacros);
+
+#ifdef I2_DEBUG
+			if (!missingMacro.IsEmpty())
+				Log(LogDebug, "PluginUtility")
+					<< "Macro '" << name << "' is not defined.";
+#endif /* I2_DEBUG */
 
 			if (value.IsObjectType<Array>())
 				value = Utility::Join(value, ';');
@@ -86,11 +93,7 @@ void PluginUtility::ExecuteCommand(const Command::Ptr& commandObj, const Checkab
 
 	Process::Ptr process = new Process(Process::PrepareCommand(command), envMacros);
 
-	if (checkable->GetCheckTimeout().IsEmpty())
-		process->SetTimeout(commandObj->GetTimeout());
-	else
-		process->SetTimeout(checkable->GetCheckTimeout());
-
+	process->SetTimeout(timeout);
 	process->SetAdjustPriority(true);
 
 	process->Run(std::bind(callback, command, _1));

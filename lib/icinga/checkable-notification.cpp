@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -76,7 +76,7 @@ void Checkable::SendNotifications(NotificationType type, const CheckResult::Ptr&
 				notification->BeginExecuteNotification(type, cr, force, false, author, text);
 		} catch (const std::exception& ex) {
 			Log(LogWarning, "Checkable")
-				<< "Exception occured during notification for service '"
+				<< "Exception occurred during notification for service '"
 				<< GetName() << "': " << DiagnosticInformation(ex);
 		}
 	}

@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -30,7 +30,7 @@ using namespace icinga;
 
 String ConfigPackageUtility::GetPackageDir()
 {
-	return Application::GetLocalStateDir() + "/lib/icinga2/api/packages";
+	return Configuration::DataDir + "/api/packages";
 }
 
 void ConfigPackageUtility::CreatePackage(const String& name)
@@ -57,9 +57,17 @@ void ConfigPackageUtility::DeletePackage(const String& name)
 
 std::vector<String> ConfigPackageUtility::GetPackages()
 {
+	String packageDir = GetPackageDir();
+
 	std::vector<String> packages;
-	Utility::Glob(GetPackageDir() + "/*", std::bind(&ConfigPackageUtility::CollectDirNames,
+
+	/* Package directory does not exist, no packages have been created thus far. */
+	if (!Utility::PathExists(packageDir))
+		return packages;
+
+	Utility::Glob(packageDir + "/*", std::bind(&ConfigPackageUtility::CollectDirNames,
 		_1, std::ref(packages)), GlobDirectory);
+
 	return packages;
 }
 
@@ -209,11 +217,22 @@ void ConfigPackageUtility::AsyncTryActivateStage(const String& packageName, cons
 	// prepare arguments
 	Array::Ptr args = new Array({
 		Application::GetExePath(Application::GetArgV()[0]),
-		"daemon",
-		"--validate",
-		"--define",
-		"ActiveStageOverride=" + packageName + ":" + stageName
 	});
+
+	// copy all arguments of parent process
+	for (int i = 1; i < Application::GetArgC(); i++) {
+		String argV = Application::GetArgV()[i];
+
+		if (argV == "-d" || argV == "--daemonize")
+			continue;
+
+		args->Add(argV);
+	}
+
+	// add arguments for validation
+	args->Add("--validate");
+	args->Add("--define");
+	args->Add("ActiveStageOverride=" + packageName + ":" + stageName);
 
 	Process::Ptr process = new Process(Process::PrepareCommand(args));
 	process->SetTimeout(300);

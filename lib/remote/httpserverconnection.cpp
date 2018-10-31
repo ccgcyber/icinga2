@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -24,12 +24,13 @@
 #include "remote/apifunction.hpp"
 #include "remote/jsonrpc.hpp"
 #include "base/base64.hpp"
-#include "base/configtype.hpp"
-#include "base/objectlock.hpp"
-#include "base/utility.hpp"
-#include "base/logger.hpp"
-#include "base/exception.hpp"
 #include "base/convert.hpp"
+#include "base/configtype.hpp"
+#include "base/exception.hpp"
+#include "base/logger.hpp"
+#include "base/objectlock.hpp"
+#include "base/timer.hpp"
+#include "base/utility.hpp"
 #include <boost/thread/once.hpp>
 
 using namespace icinga;
@@ -46,13 +47,24 @@ HttpServerConnection::HttpServerConnection(const String& identity, bool authenti
 
 	if (authenticated)
 		m_ApiUser = ApiUser::GetByClientCN(identity);
+
+	/* Cache the peer address. */
+	m_PeerAddress = "<unknown>";
+
+	if (stream) {
+		Socket::Ptr socket = m_Stream->GetSocket();
+
+		if (socket) {
+			m_PeerAddress = socket->GetPeerAddress();
+		}
+	}
 }
 
 void HttpServerConnection::StaticInitialize()
 {
 	l_HttpServerConnectionTimeoutTimer = new Timer();
 	l_HttpServerConnectionTimeoutTimer->OnTimerExpired.connect(std::bind(&HttpServerConnection::TimeoutTimerHandler));
-	l_HttpServerConnectionTimeoutTimer->SetInterval(15);
+	l_HttpServerConnectionTimeoutTimer->SetInterval(5);
 	l_HttpServerConnectionTimeoutTimer->Start();
 }
 
@@ -76,7 +88,14 @@ TlsStream::Ptr HttpServerConnection::GetStream() const
 
 void HttpServerConnection::Disconnect()
 {
-	Log(LogDebug, "HttpServerConnection", "Http client disconnected");
+	boost::recursive_mutex::scoped_try_lock lock(m_DataHandlerMutex);
+	if (!lock.owns_lock()) {
+		Log(LogInformation, "HttpServerConnection", "Unable to disconnect Http client, I/O thread busy");
+		return;
+	}
+
+	Log(LogInformation, "HttpServerConnection")
+		<< "HTTP client disconnected (from " << m_PeerAddress << ")";
 
 	ApiListener::Ptr listener = ApiListener::GetInstance();
 	listener->RemoveHttpClient(this);
@@ -90,97 +109,123 @@ void HttpServerConnection::Disconnect()
 bool HttpServerConnection::ProcessMessage()
 {
 	bool res;
+	HttpResponse response(m_Stream, m_CurrentRequest);
 
-	try {
-		res = m_CurrentRequest.Parse(m_Context, false);
-	} catch (const std::invalid_argument& ex) {
-		HttpResponse response(m_Stream, m_CurrentRequest);
-		response.SetStatus(400, "Bad request");
-		String msg = String("<h1>Bad request</h1><p><pre>") + ex.what() + "</pre></p>";
-		response.WriteBody(msg.CStr(), msg.GetLength());
-		response.Finish();
+	if (!m_CurrentRequest.CompleteHeaders) {
+		try {
+			res = m_CurrentRequest.ParseHeaders(m_Context, false);
+		} catch (const std::invalid_argument& ex) {
+			response.SetStatus(400, "Bad Request");
+			String msg = String("<h1>Bad Request</h1><p><pre>") + ex.what() + "</pre></p>";
+			response.WriteBody(msg.CStr(), msg.GetLength());
+			response.Finish();
 
-		m_Stream->Shutdown();
-		return false;
-	} catch (const std::exception& ex) {
-		HttpResponse response(m_Stream, m_CurrentRequest);
-		response.SetStatus(400, "Bad request");
-		String msg = "<h1>Bad request</h1><p><pre>" + DiagnosticInformation(ex) + "</pre></p>";
-		response.WriteBody(msg.CStr(), msg.GetLength());
-		response.Finish();
+			m_CurrentRequest.~HttpRequest();
+			new (&m_CurrentRequest) HttpRequest(m_Stream);
 
-		m_Stream->Shutdown();
-		return false;
+			m_Stream->Shutdown();
+
+			return false;
+		} catch (const std::exception& ex) {
+			response.SetStatus(500, "Internal Server Error");
+			String msg = "<h1>Internal Server Error</h1><p><pre>" + DiagnosticInformation(ex) + "</pre></p>";
+			response.WriteBody(msg.CStr(), msg.GetLength());
+			response.Finish();
+
+			m_CurrentRequest.~HttpRequest();
+			new (&m_CurrentRequest) HttpRequest(m_Stream);
+
+			m_Stream->Shutdown();
+
+			return false;
+		}
+		return res;
 	}
 
-	if (m_CurrentRequest.Complete) {
-		m_RequestQueue.Enqueue(std::bind(&HttpServerConnection::ProcessMessageAsync,
-			HttpServerConnection::Ptr(this), m_CurrentRequest));
+	if (!m_CurrentRequest.CompleteHeaderCheck) {
+		m_CurrentRequest.CompleteHeaderCheck = true;
+		if (!ManageHeaders(response)) {
+			m_CurrentRequest.~HttpRequest();
+			new (&m_CurrentRequest) HttpRequest(m_Stream);
 
-		m_Seen = Utility::GetTime();
-		m_PendingRequests++;
+			m_Stream->Shutdown();
 
-		m_CurrentRequest.~HttpRequest();
-		new (&m_CurrentRequest) HttpRequest(m_Stream);
-
-		return true;
-	}
-
-	return res;
-}
-
-void HttpServerConnection::ProcessMessageAsync(HttpRequest& request)
-{
-	String auth_header = request.Headers->Get("authorization");
-
-	String::SizeType pos = auth_header.FindFirstOf(" ");
-	String username, password;
-
-	if (pos != String::NPos && auth_header.SubStr(0, pos) == "Basic") {
-		String credentials_base64 = auth_header.SubStr(pos + 1);
-		String credentials = Base64::Decode(credentials_base64);
-
-		String::SizeType cpos = credentials.FindFirstOf(":");
-
-		if (cpos != String::NPos) {
-			username = credentials.SubStr(0, cpos);
-			password = credentials.SubStr(cpos + 1);
+			return false;
 		}
 	}
 
-	ApiUser::Ptr user;
+	if (!m_CurrentRequest.CompleteBody) {
+		try {
+			res = m_CurrentRequest.ParseBody(m_Context, false);
+		} catch (const std::invalid_argument& ex) {
+			response.SetStatus(400, "Bad Request");
+			String msg = String("<h1>Bad Request</h1><p><pre>") + ex.what() + "</pre></p>";
+			response.WriteBody(msg.CStr(), msg.GetLength());
+			response.Finish();
+
+			m_CurrentRequest.~HttpRequest();
+			new (&m_CurrentRequest) HttpRequest(m_Stream);
+
+			m_Stream->Shutdown();
+
+			return false;
+		} catch (const std::exception& ex) {
+			response.SetStatus(500, "Internal Server Error");
+			String msg = "<h1>Internal Server Error</h1><p><pre>" + DiagnosticInformation(ex) + "</pre></p>";
+			response.WriteBody(msg.CStr(), msg.GetLength());
+			response.Finish();
+
+			m_CurrentRequest.~HttpRequest();
+			new (&m_CurrentRequest) HttpRequest(m_Stream);
+
+			m_Stream->Shutdown();
+
+			return false;
+		}
+		return res;
+	}
+
+	m_RequestQueue.Enqueue(std::bind(&HttpServerConnection::ProcessMessageAsync,
+		HttpServerConnection::Ptr(this), m_CurrentRequest, response, m_AuthenticatedUser));
+
+	m_Seen = Utility::GetTime();
+	m_PendingRequests++;
+
+	m_CurrentRequest.~HttpRequest();
+	new (&m_CurrentRequest) HttpRequest(m_Stream);
+
+	return false;
+}
+
+bool HttpServerConnection::ManageHeaders(HttpResponse& response)
+{
+	if (m_CurrentRequest.Headers->Get("expect") == "100-continue") {
+		String continueResponse = "HTTP/1.1 100 Continue\r\n\r\n";
+		m_Stream->Write(continueResponse.CStr(), continueResponse.GetLength());
+	}
 
 	/* client_cn matched. */
 	if (m_ApiUser)
-		user = m_ApiUser;
-	else {
-		user = ApiUser::GetByName(username);
+		m_AuthenticatedUser = m_ApiUser;
+	else
+		m_AuthenticatedUser = ApiUser::GetByAuthHeader(m_CurrentRequest.Headers->Get("authorization"));
 
-		/* Deny authentication if 1) given password is empty 2) configured password does not match. */
-		if (password.IsEmpty())
-			user.reset();
-		else if (user && user->GetPassword() != password)
-			user.reset();
-	}
-
-	String requestUrl = request.RequestUrl->Format();
+	String requestUrl = m_CurrentRequest.RequestUrl->Format();
 
 	Log(LogInformation, "HttpServerConnection")
-		<< "Request: " << request.RequestMethod << " " << requestUrl
-		<< " (from " << m_Stream->GetSocket()->GetPeerAddress() << ", user: " << (user ? user->GetName() : "<unauthenticated>") << ")";
-
-	HttpResponse response(m_Stream, request);
+		<< "Request: " << m_CurrentRequest.RequestMethod << " " << requestUrl
+		<< " (from " << m_PeerAddress << ")"
+		<< ", user: " << (m_AuthenticatedUser ? m_AuthenticatedUser->GetName() : "<unauthenticated>") << ")";
 
 	ApiListener::Ptr listener = ApiListener::GetInstance();
 
 	if (!listener)
-		return;
+		return false;
 
 	Array::Ptr headerAllowOrigin = listener->GetAccessControlAllowOrigin();
 
-	if (headerAllowOrigin->GetLength() != 0) {
-		String origin = request.Headers->Get("origin");
-
+	if (headerAllowOrigin && headerAllowOrigin->GetLength() != 0) {
+		String origin = m_CurrentRequest.Headers->Get("origin");
 		{
 			ObjectLock olock(headerAllowOrigin);
 
@@ -190,42 +235,41 @@ void HttpServerConnection::ProcessMessageAsync(HttpRequest& request)
 			}
 		}
 
-		if (listener->GetAccessControlAllowCredentials())
-			response.AddHeader("Access-Control-Allow-Credentials", "true");
+		response.AddHeader("Access-Control-Allow-Credentials", "true");
 
-		String accessControlRequestMethodHeader = request.Headers->Get("access-control-request-method");
+		String accessControlRequestMethodHeader = m_CurrentRequest.Headers->Get("access-control-request-method");
 
-		if (!accessControlRequestMethodHeader.IsEmpty()) {
+		if (m_CurrentRequest.RequestMethod == "OPTIONS" && !accessControlRequestMethodHeader.IsEmpty()) {
 			response.SetStatus(200, "OK");
 
-			response.AddHeader("Access-Control-Allow-Methods", listener->GetAccessControlAllowMethods());
-			response.AddHeader("Access-Control-Allow-Headers", listener->GetAccessControlAllowHeaders());
+			response.AddHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE");
+			response.AddHeader("Access-Control-Allow-Headers", "Authorization, X-HTTP-Method-Override");
 
 			String msg = "Preflight OK";
 			response.WriteBody(msg.CStr(), msg.GetLength());
 
 			response.Finish();
-			m_PendingRequests--;
-
-			return;
+			return false;
 		}
 	}
 
-	String accept_header = request.Headers->Get("accept");
-
-	if (request.RequestMethod != "GET" && accept_header != "application/json") {
+	if (m_CurrentRequest.RequestMethod != "GET" && m_CurrentRequest.Headers->Get("accept") != "application/json") {
 		response.SetStatus(400, "Wrong Accept header");
 		response.AddHeader("Content-Type", "text/html");
 		String msg = "<h1>Accept header is missing or not set to 'application/json'.</h1>";
 		response.WriteBody(msg.CStr(), msg.GetLength());
-	} else if (!user) {
+		response.Finish();
+		return false;
+	}
+
+	if (!m_AuthenticatedUser) {
 		Log(LogWarning, "HttpServerConnection")
-			<< "Unauthorized request: " << request.RequestMethod << " " << requestUrl;
+			<< "Unauthorized request: " << m_CurrentRequest.RequestMethod << " " << requestUrl;
 
 		response.SetStatus(401, "Unauthorized");
 		response.AddHeader("WWW-Authenticate", "Basic realm=\"Icinga 2\"");
 
-		if (request.Headers->Get("accept") == "application/json") {
+		if (m_CurrentRequest.Headers->Get("accept") == "application/json") {
 			Dictionary::Ptr result = new Dictionary({
 				{ "error", 401 },
 				{ "status", "Unauthorized. Please check your user credentials." }
@@ -237,32 +281,68 @@ void HttpServerConnection::ProcessMessageAsync(HttpRequest& request)
 			String msg = "<h1>Unauthorized. Please check your user credentials.</h1>";
 			response.WriteBody(msg.CStr(), msg.GetLength());
 		}
-	} else {
-		try {
-			HttpHandler::ProcessRequest(user, request, response);
-		} catch (const std::exception& ex) {
-			Log(LogCritical, "HttpServerConnection")
-				<< "Unhandled exception while processing Http request: " << DiagnosticInformation(ex);
-			response.SetStatus(503, "Unhandled exception");
 
-			String errorInfo = DiagnosticInformation(ex);
+		response.Finish();
+		return false;
+	}
 
-			if (request.Headers->Get("accept") == "application/json") {
-				Dictionary::Ptr result = new Dictionary({
-					{ "error", 503 },
-					{ "status", errorInfo }
-				});
+	static const size_t defaultContentLengthLimit = 1 * 1024 * 1024;
+	size_t maxSize = defaultContentLengthLimit;
 
-				HttpUtility::SendJsonBody(response, nullptr, result);
-			} else {
-				response.AddHeader("Content-Type", "text/plain");
-				response.WriteBody(errorInfo.CStr(), errorInfo.GetLength());
+	Array::Ptr permissions = m_AuthenticatedUser->GetPermissions();
+
+	if (permissions) {
+		ObjectLock olock(permissions);
+
+		for (const Value& permissionInfo : permissions) {
+			String permission;
+
+			if (permissionInfo.IsObjectType<Dictionary>())
+				permission = static_cast<Dictionary::Ptr>(permissionInfo)->Get("permission");
+			else
+				permission = permissionInfo;
+
+			static std::vector<std::pair<String, size_t>> specialContentLengthLimits {
+				  { "config/modify", 512 * 1024 * 1024 }
+			};
+
+			for (const auto& limitInfo : specialContentLengthLimits) {
+				if (limitInfo.second <= maxSize)
+					continue;
+
+				if (Utility::Match(permission, limitInfo.first))
+					maxSize = limitInfo.second;
 			}
 		}
 	}
 
-	response.Finish();
+	size_t contentLength = m_CurrentRequest.Headers->Get("content-length");
 
+	if (contentLength > maxSize) {
+		response.SetStatus(400, "Bad Request");
+		String msg = String("<h1>Content length exceeded maximum</h1>");
+		response.WriteBody(msg.CStr(), msg.GetLength());
+		response.Finish();
+
+		return false;
+	}
+
+	return true;
+}
+
+void HttpServerConnection::ProcessMessageAsync(HttpRequest& request, HttpResponse& response, const ApiUser::Ptr& user)
+{
+	response.RebindRequest(request);
+
+	try {
+		HttpHandler::ProcessRequest(user, request, response);
+	} catch (const std::exception& ex) {
+		Log(LogCritical, "HttpServerConnection")
+			<< "Unhandled exception while processing Http request: " << DiagnosticInformation(ex);
+		HttpUtility::SendJsonError(response, nullptr, 503, "Unhandled exception" , DiagnosticInformation(ex));
+	}
+
+	response.Finish();
 	m_PendingRequests--;
 }
 
@@ -271,7 +351,7 @@ void HttpServerConnection::DataAvailableHandler()
 	bool close = false;
 
 	if (!m_Stream->IsEof()) {
-		boost::mutex::scoped_lock lock(m_DataHandlerMutex);
+		boost::recursive_mutex::scoped_lock lock(m_DataHandlerMutex);
 
 		try {
 			while (ProcessMessage())
@@ -280,6 +360,13 @@ void HttpServerConnection::DataAvailableHandler()
 			Log(LogWarning, "HttpServerConnection")
 				<< "Error while reading Http request: " << DiagnosticInformation(ex);
 
+			close = true;
+		}
+
+		/* Request finished, decide whether to explicitly close the connection. */
+		if (m_CurrentRequest.ProtocolVersion == HttpVersion10 ||
+			m_CurrentRequest.Headers->Get("connection") == "close") {
+			m_Stream->Shutdown();
 			close = true;
 		}
 	} else
@@ -291,7 +378,7 @@ void HttpServerConnection::DataAvailableHandler()
 
 void HttpServerConnection::CheckLiveness()
 {
-	if (m_Seen < Utility::GetTime() - 10 && m_PendingRequests == 0) {
+	if (m_Seen < Utility::GetTime() - 10 && m_PendingRequests == 0 && m_Stream->IsEof()) {
 		Log(LogInformation, "HttpServerConnection")
 			<<  "No messages for Http connection have been received in the last 10 seconds.";
 		Disconnect();

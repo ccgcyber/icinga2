@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -138,7 +138,7 @@ Value Object::GetFieldByName(const String& field, bool sandboxed, const DebugInf
 	return GetField(fid);
 }
 
-void Object::SetFieldByName(const String& field, const Value& value, const DebugInfo& debugInfo)
+void Object::SetFieldByName(const String& field, const Value& value, bool overrideFrozen, const DebugInfo& debugInfo)
 {
 	Type::Ptr type = GetReflectionType();
 
@@ -289,4 +289,10 @@ void icinga::DefaultObjectFactoryCheckArgs(const std::vector<Value>& args)
 {
 	if (!args.empty())
 		BOOST_THROW_EXCEPTION(std::invalid_argument("Constructor does not take any arguments."));
+}
+
+void icinga::RequireNotNullInternal(const intrusive_ptr<Object>& object, const char *description)
+{
+	if (!object)
+		BOOST_THROW_EXCEPTION(std::invalid_argument("Pointer must not be null: " + String(description)));
 }

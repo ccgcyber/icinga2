@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -44,6 +44,20 @@ REGISTER_TYPE(OpenTsdbWriter);
 
 REGISTER_STATSFUNCTION(OpenTsdbWriter, &OpenTsdbWriter::StatsFunc);
 
+void OpenTsdbWriter::OnConfigLoaded()
+{
+	ObjectImpl<OpenTsdbWriter>::OnConfigLoaded();
+
+	if (!GetEnableHa()) {
+		Log(LogDebug, "OpenTsdbWriter")
+			<< "HA functionality disabled. Won't pause connection: " << GetName();
+
+		SetHAMode(HARunEverywhere);
+	} else {
+		SetHAMode(HARunOnce);
+	}
+}
+
 void OpenTsdbWriter::StatsFunc(const Dictionary::Ptr& status, const Array::Ptr&)
 {
 	DictionaryData nodes;
@@ -55,12 +69,12 @@ void OpenTsdbWriter::StatsFunc(const Dictionary::Ptr& status, const Array::Ptr&)
 	status->Set("opentsdbwriter", new Dictionary(std::move(nodes)));
 }
 
-void OpenTsdbWriter::Start(bool runtimeCreated)
+void OpenTsdbWriter::Resume()
 {
-	ObjectImpl<OpenTsdbWriter>::Start(runtimeCreated);
+	ObjectImpl<OpenTsdbWriter>::Resume();
 
 	Log(LogInformation, "OpentsdbWriter")
-		<< "'" << GetName() << "' started.";
+		<< "'" << GetName() << "' resumed.";
 
 	m_ReconnectTimer = new Timer();
 	m_ReconnectTimer->SetInterval(10);
@@ -71,16 +85,19 @@ void OpenTsdbWriter::Start(bool runtimeCreated)
 	Service::OnNewCheckResult.connect(std::bind(&OpenTsdbWriter::CheckResultHandler, this, _1, _2));
 }
 
-void OpenTsdbWriter::Stop(bool runtimeRemoved)
+void OpenTsdbWriter::Pause()
 {
 	Log(LogInformation, "OpentsdbWriter")
-		<< "'" << GetName() << "' stopped.";
+		<< "'" << GetName() << "' paused.";
 
-	ObjectImpl<OpenTsdbWriter>::Stop(runtimeRemoved);
+	ObjectImpl<OpenTsdbWriter>::Pause();
 }
 
 void OpenTsdbWriter::ReconnectTimerHandler()
 {
+	if (IsPaused())
+		return;
+
 	if (m_Stream)
 		return;
 
@@ -102,6 +119,9 @@ void OpenTsdbWriter::ReconnectTimerHandler()
 
 void OpenTsdbWriter::CheckResultHandler(const Checkable::Ptr& checkable, const CheckResult::Ptr& cr)
 {
+	if (IsPaused())
+		return;
+
 	CONTEXT("Processing check result for '" + checkable->GetName() + "'");
 
 	if (!IcingaApplication::GetInstance()->GetEnablePerfdata() || !checkable->GetEnablePerfdata())
@@ -254,6 +274,7 @@ String OpenTsdbWriter::EscapeMetric(const String& str)
 	boost::replace_all(result, " ", "_");
 	boost::replace_all(result, ".", "_");
 	boost::replace_all(result, "\\", "_");
+	boost::replace_all(result, ":", "_");
 
 	return result;
 }

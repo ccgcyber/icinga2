@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -65,6 +65,7 @@ public:
 	void SetPort(const String& port);
 	void SetPath(const std::vector<String>& path);
 	void SetQuery(const std::map<String, std::vector<String> >& query);
+	void SetArrayFormatUseBrackets(bool useBrackets = true);
 
 	void AddQueryElement(const String& name, const String& query);
 	void SetQueryElements(const String& name, const std::vector<String>& query);
@@ -78,6 +79,7 @@ private:
 	String m_Port;
 	std::vector<String> m_Path;
 	std::map<String, std::vector<String> > m_Query;
+	bool m_ArrayFormatUseBrackets;
 	String m_Fragment;
 
 	bool ParseScheme(const String& scheme);

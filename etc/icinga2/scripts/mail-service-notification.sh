@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #
-# Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)
+# Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)
+# Except of function urlencode which is Copyright (C) by Brian White (brian@aljex.com) used under MIT license
 
 PROG="`basename $0`"
 ICINGA2HOST="`hostname`"
@@ -51,6 +52,16 @@ Error() {
   exit 1;
 }
 
+urlencode() {
+  local LANG=C i c e=''
+  for ((i=0;i<${#1};i++)); do
+    c=${1:$i:1}
+    [[ "$c" =~ [a-zA-Z0-9\.\~\_\-] ]] || printf -v c '%%%02X' "'$c"
+    e+="$c"
+  done
+  echo "$e"
+}
+
 ## Main
 while getopts 4:6:b:c:d:e:f:hi:l:n:o:r:s:t:u:v: opt
 do
@@ -83,15 +94,14 @@ done
 
 shift $((OPTIND - 1))
 
-## Check required parameters (TODO: better error message)
 ## Keep formatting in sync with mail-host-notification.sh
-if [ ! "$LONGDATETIME" ] \
-|| [ ! "$HOSTNAME" ] || [ ! "$HOSTDISPLAYNAME" ] \
-|| [ ! "$SERVICENAME" ] || [ ! "$SERVICEDISPLAYNAME" ] \
-|| [ ! "$SERVICEOUTPUT" ] || [ ! "$SERVICESTATE" ] \
-|| [ ! "$USEREMAIL" ] || [ ! "$NOTIFICATIONTYPE" ]; then
-  Error "Requirement parameters are missing."
-fi
+for P in LONGDATETIME HOSTNAME HOSTDISPLAYNAME SERVICENAME SERVICEDISPLAYNAME SERVICEOUTPUT SERVICESTATE USEREMAIL NOTIFICATIONTYPE ; do
+        eval "PAR=\$${P}"
+
+        if [ ! "$PAR" ] ; then
+                Error "Required parameter '$P' is missing."
+        fi
+done
 
 ## Build the message's subject
 SUBJECT="[$NOTIFICATIONTYPE] $SERVICEDISPLAYNAME on $HOSTDISPLAYNAME is $SERVICESTATE!"
@@ -134,7 +144,7 @@ fi
 if [ -n "$ICINGAWEB2URL" ] ; then
   NOTIFICATION_MESSAGE="$NOTIFICATION_MESSAGE
 
-$ICINGAWEB2URL/monitoring/service/show?host=$HOSTNAME&service=$SERVICENAME"
+$ICINGAWEB2URL/monitoring/service/show?host=$(urlencode "$HOSTNAME")&service=$(urlencode "$SERVICENAME")"
 fi
 
 ## Check whether verbose mode was enabled and log to syslog.

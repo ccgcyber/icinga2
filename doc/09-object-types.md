@@ -61,23 +61,30 @@ Configuration Attributes:
   bind\_port                            | Number                | **Optional.** The port the api listener should be bound to. Defaults to `5665`.
   accept\_config                        | Boolean               | **Optional.** Accept zone configuration. Defaults to `false`.
   accept\_commands                      | Boolean               | **Optional.** Accept remote commands. Defaults to `false`.
+  max\_anonymous\_clients               | Number                | **Optional.** Limit the number of anonymous client connections (not configured endpoints and signing requests).
   cipher\_list                          | String                | **Optional.** Cipher list that is allowed. For a list of available ciphers run `openssl ciphers`. Defaults to `ALL:!LOW:!WEAK:!MEDIUM:!EXP:!NULL`.
   tls\_protocolmin                      | String                | **Optional.** Minimum TLS protocol version. Must be one of `TLSv1`, `TLSv1.1` or `TLSv1.2`. Defaults to `TLSv1`.
+  tls\_handshake\_timeout               | Number                | **Optional.** TLS Handshake timeout. Defaults to `10s`.
   access\_control\_allow\_origin        | Array                 | **Optional.** Specifies an array of origin URLs that may access the API. [(MDN docs)](https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS#Access-Control-Allow-Origin)
-  access\_control\_allow\_credentials   | Boolean               | **Optional.** Indicates whether or not the actual request can be made using credentials. Defaults to `true`. [(MDN docs)](https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS#Access-Control-Allow-Credentials)
-  access\_control\_allow\_headers       | String                | **Optional.** Used in response to a preflight request to indicate which HTTP headers can be used when making the actual request. Defaults to `Authorization`. [(MDN docs)](https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS#Access-Control-Allow-Headers)
-  access\_control\_allow\_methods       | String                | **Optional.** Used in response to a preflight request to indicate which HTTP methods can be used when making the actual request. Defaults to `GET, POST, PUT, DELETE`. [(MDN docs)](https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS#Access-Control-Allow-Methods)
+  access\_control\_allow\_credentials   | Boolean               | **Deprecated.** Indicates whether or not the actual request can be made using credentials. Defaults to `true`. [(MDN docs)](https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS#Access-Control-Allow-Credentials)
+  access\_control\_allow\_headers       | String                | **Deprecated.** Used in response to a preflight request to indicate which HTTP headers can be used when making the actual request. Defaults to `Authorization`. [(MDN docs)](https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS#Access-Control-Allow-Headers)
+  access\_control\_allow\_methods       | String                | **Deprecated.** Used in response to a preflight request to indicate which HTTP methods can be used when making the actual request. Defaults to `GET, POST, PUT, DELETE`. [(MDN docs)](https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS#Access-Control-Allow-Methods)
+  environment                           | String                | **Optional.** Used as suffix in TLS SNI extension name; default from constant `ApiEnvironment`, which is empty.
+
+The attributes `access_control_allow_credentials`, `access_control_allow_headers` and `access_control_allow_methods`
+are controlled by Icinga 2 and are not changeable by config any more.
+
 
 The ApiListener type expects its certificate files to be in the following locations:
 
   Type                 | Location
   ---------------------|-------------------------------------
-  Private key          | `LocalStateDir + "/lib/icinga2/certs/" + NodeName + ".key"`
-  Certificate file     | `LocalStateDir + "/lib/icinga2/certs/" + NodeName + ".crt"`
-  CA certificate file  | `LocalStateDir + "/lib/icinga2/certs/ca.crt"`
+  Private key          | `DataDir + "/certs/" + NodeName + ".key"`
+  Certificate file     | `DataDir + "/certs/" + NodeName + ".crt"`
+  CA certificate file  | `DataDir + "/certs/ca.crt"`
 
 If the deprecated attributes `cert_path`, `key_path` and/or `ca_path` are specified Icinga 2
-copies those files to the new location in `LocalStateDir + "/lib/icinga2/certs"` unless the
+copies those files to the new location in `DataDir + "/certs"` unless the
 file(s) there are newer.
 
 Please check the [upgrading chapter](16-upgrading-icinga-2.md#upgrading-to-2-8-certificate-paths) for more details.
@@ -109,7 +116,7 @@ Configuration Attributes:
   --------------------------|-----------------------|----------------------------------
   password                  | String                | **Optional.** Password string. Note: This attribute is hidden in API responses.
   client\_cn                | String                | **Optional.** Client Common Name (CN).
-  permissions		    | Array                 | **Required.** Array of permissions. Either as string or dictionary with the keys `permission` and `filter`. The latter must be specified as function.
+  permissions               | Array                 | **Required.** Array of permissions. Either as string or dictionary with the keys `permission` and `filter`. The latter must be specified as function.
 
 Available permissions are explained in the [API permissions](12-icinga2-api.md#icinga2-api-permissions)
 chapter.
@@ -118,10 +125,6 @@ chapter.
 
 A check command definition. Additional default command custom attributes can be
 defined here.
-
-> **Note**
->
-> Icinga 2 versions < 2.6.0 require the import of the [plugin-check-command](10-icinga-template-library.md#itl-plugin-check-command) template.
 
 Example:
 
@@ -227,6 +230,12 @@ Argument order:
 ..., -3, -2, -1, <un-ordered keys>, 1, 2, 3, ...
 ```
 
+Define argument array:
+
+```
+value = "[ 'one', 'two', 'three' ]"
+```
+
 Argument array with `repeat_key = true`:
 
 ```
@@ -247,16 +256,14 @@ This configuration object is available as [checker feature](11-cli-commands.md#c
 Example:
 
 ```
-object CheckerComponent "checker" {
-  concurrent_checks = 512
-}
+object CheckerComponent "checker" { }
 ```
 
 Configuration Attributes:
 
   Name                      | Type                  | Description
   --------------------------|-----------------------|----------------------------------
-  concurrent\_checks        | Number                | **Optional.** The maximum number of concurrent checks. Defaults to 512.
+  concurrent\_checks        | Number                | **Optional and deprecated.** The maximum number of concurrent checks. Was replaced by global constant `MaxConcurrentChecks` which will be set if you still use `concurrent_checks`.
 
 ## CheckResultReader <a id="objecttype-checkresultreader"></a>
 
@@ -275,7 +282,7 @@ Configuration Attributes:
 
   Name                      | Type                  | Description
   --------------------------|-----------------------|----------------------------------
-  spool\_dir                | String                | **Optional.** The directory which contains the check result files. Defaults to LocalStateDir + "/lib/icinga2/spool/checkresults/".
+  spool\_dir                | String                | **Optional.** The directory which contains the check result files. Defaults to DataDir + "/spool/checkresults/".
 
 ## Comment <a id="objecttype-comment"></a>
 
@@ -286,10 +293,11 @@ with the [add-comment](12-icinga2-api.md#icinga2-api-actions-add-comment) API ac
 Example:
 
 ```
-object Comment "localhost!my-comment" {
+object Comment "my-comment" {
   host_name = "localhost"
   author = "icingaadmin"
   text = "This is a comment."
+  entry_time = 1234567890
 }
 ```
 
@@ -301,7 +309,7 @@ Configuration Attributes:
   service\_name             | Object name           | **Optional.** The short name of the service this comment belongs to. If omitted, this comment object is treated as host comment.
   author                    | String                | **Required.** The author's name.
   text                      | String                | **Required.** The comment text.
-  entry\_time               | Timestamp             | **Optional.** The UNIX timestamp when this comment was added.
+  entry\_time               | Timestamp             | **Optional.** The UNIX timestamp when this comment was added. If omitted, the entry time is volatile!
   entry\_type               | Number                | **Optional.** The comment type (`User` = 1, `Downtime` = 2, `Flapping` = 3, `Acknowledgement` = 4).
   expire\_time              | Timestamp             | **Optional.** The comment's expire time as UNIX timestamp.
   persistent                | Boolean               | **Optional.** Only evaluated for `entry_type` Acknowledgement. `true` does not remove the comment when the acknowledgement is removed.
@@ -324,7 +332,7 @@ Configuration Attributes:
 
   Name                      | Type                  | Description
   --------------------------|-----------------------|----------------------------------
-  log\_dir                  | String                | **Optional.** Path to the compat log directory. Defaults to LocalStateDir + "/log/icinga2/compat".
+  log\_dir                  | String                | **Optional.** Path to the compat log directory. Defaults to LogDir + "/compat".
   rotation\_method          | String                | **Optional.** Specifies when to rotate log files. Can be one of "HOURLY", "DAILY", "WEEKLY" or "MONTHLY". Defaults to "HOURLY".
 
 
@@ -510,6 +518,7 @@ Configuration Attributes:
   ca\_path                  | String                | **Optional.** Path to CA certificate to validate the remote host. Requires `enable_tls` set to `true`.
   cert\_path                | String                | **Optional.** Path to host certificate to present to the remote host for mutual verification. Requires `enable_tls` set to `true`.
   key\_path                 | String                | **Optional.** Path to host key to accompany the cert\_path. Requires `enable_tls` set to `true`.
+  enable\_ha                | Boolean               | **Optional.** Enable the high availability functionality. Only valid in a [cluster setup](06-distributed-monitoring.md#distributed-monitoring-high-availability-features). Defaults to `true`.
 
 Note: If `flush_threshold` is set too low, this will force the feature to flush all data to Elasticsearch too often.
 Experiment with the setting, if you are processing more than 1024 metrics per second or similar.
@@ -559,10 +568,6 @@ Endpoint objects cannot currently be created with the API.
 ## EventCommand <a id="objecttype-eventcommand"></a>
 
 An event command definition.
-
-> **Note**
->
-> Icinga 2 versions < 2.6.0 require the import of the [plugin-event-command](10-icinga-template-library.md#itl-plugin-event-command) template.
 
 Example:
 
@@ -652,6 +657,7 @@ Configuration Attributes:
   port                      | Number                | **Optional.** GELF receiver port. Defaults to `12201`.
   source                    | String                | **Optional.** Source name for this instance. Defaults to `icinga2`.
   enable\_send\_perfdata    | Boolean               | **Optional.** Enable performance data for 'CHECK RESULT' events.
+  enable\_ha                | Boolean               | **Optional.** Enable the high availability functionality. Only valid in a [cluster setup](06-distributed-monitoring.md#distributed-monitoring-high-availability-features). Defaults to `true`.
 
 
 ## GraphiteWriter <a id="objecttype-graphitewriter"></a>
@@ -679,6 +685,7 @@ Configuration Attributes:
   service\_name\_template   | String                | **Optional.** Metric prefix for service name. Defaults to `icinga2.$host.name$.services.$service.name$.$service.check_command$`.
   enable\_send\_thresholds  | Boolean               | **Optional.** Send additional threshold metrics. Defaults to `false`.
   enable\_send\_metadata    | Boolean               | **Optional.** Send additional metadata metrics. Defaults to `false`.
+  enable\_ha                | Boolean               | **Optional.** Enable the high availability functionality. Only valid in a [cluster setup](06-distributed-monitoring.md#distributed-monitoring-high-availability-features). Defaults to `true`.
 
 Additional usage examples can be found [here](14-features.md#graphite-carbon-cache-writer).
 
@@ -726,8 +733,8 @@ Configuration Attributes:
   event\_command            | Object name           | **Optional.** The name of an event command that should be executed every time the host's state changes or the host is in a `SOFT` state.
   flapping\_threshold\_high | Number                | **Optional.** Flapping upper bound in percent for a host to be considered flapping. Default `30.0`
   flapping\_threshold\_low  | Number                | **Optional.** Flapping lower bound in percent for a host to be considered  not flapping. Default `25.0`
-  volatile                  | Boolean               | **Optional.** The volatile setting enables always `HARD` state types if `NOT-OK` state changes occur. Defaults to false.
-  zone		            | Object name           | **Optional.** The zone this object is a member of. Please read the [distributed monitoring](06-distributed-monitoring.md#distributed-monitoring) chapter for details.
+  volatile                  | Boolean               | **Optional.** Treat all state changes as HARD changes. See [here](08-advanced-topics.md#volatile-services-hosts) for details. Defaults to `false`.
+  zone                      | Object name           | **Optional.** The zone this object is a member of. Please read the [distributed monitoring](06-distributed-monitoring.md#distributed-monitoring) chapter for details.
   command\_endpoint         | Object name           | **Optional.** The endpoint where commands are executed on.
   notes                     | String                | **Optional.** Notes for the host.
   notes\_url                | String                | **Optional.** URL for notes for the host (for example, in notification commands).
@@ -822,6 +829,7 @@ Configuration Attributes:
   enable\_service\_checks   | Boolean               | **Optional.** Whether active service checks are globally enabled. Defaults to true.
   enable\_perfdata          | Boolean               | **Optional.** Whether performance data processing is globally enabled. Defaults to true.
   vars                      | Dictionary            | **Optional.** A dictionary containing custom attributes that are available globally.
+  environment               | String                | **Optional.** Specify the Icinga environment. This overrides the `Environment` constant specified in the configuration or on the CLI with `--define`. Defaults to empty.
 
 ## IdoMySqlConnection <a id="objecttype-idomysqlconnection"></a>
 
@@ -864,7 +872,7 @@ Configuration Attributes:
   table\_prefix             | String                | **Optional.** MySQL database table prefix. Defaults to `icinga_`.
   instance\_name            | String                | **Optional.** Unique identifier for the local Icinga 2 instance. Defaults to `default`.
   instance\_description     | String                | **Optional.** Description for the Icinga 2 instance.
-  enable\_ha                | Boolean               | **Optional.** Enable the high availability functionality. Only valid in a [cluster setup](06-distributed-monitoring.md#distributed-monitoring-high-availability-db-ido). Defaults to "true".
+  enable\_ha                | Boolean               | **Optional.** Enable the high availability functionality. Only valid in a [cluster setup](06-distributed-monitoring.md#distributed-monitoring-high-availability-db-ido). Defaults to `true`.
   failover\_timeout         | Duration              | **Optional.** Set the failover timeout in a [HA cluster](06-distributed-monitoring.md#distributed-monitoring-high-availability-db-ido). Must not be lower than 60s. Defaults to `60s`.
   cleanup                   | Dictionary            | **Optional.** Dictionary with items for historical table cleanup.
   categories                | Array                 | **Optional.** Array of information types that should be written to the database.
@@ -945,6 +953,10 @@ Configuration Attributes:
   user                      | String                | **Optional.** PostgreSQL database user with read/write permission to the icinga database. Defaults to `icinga`.
   password                  | String                | **Optional.** PostgreSQL database user's password. Defaults to `icinga`.
   database                  | String                | **Optional.** PostgreSQL database name. Defaults to `icinga`.
+  ssl\_mode                 | String                | **Optional.** Enable SSL connection mode. Value must be set according to the [sslmode setting](https://www.postgresql.org/docs/9.3/static/libpq-connect.html#LIBPQ-CONNSTRING): `prefer`, `require`, `verify-ca`, `verify-full`, `allow`, `disable`.
+  ssl\_key                  | String                | **Optional.** PostgreSQL SSL client key file path.
+  ssl\_cert                 | String                | **Optional.** PostgreSQL SSL certificate file path.
+  ssl\_ca                   | String                | **Optional.** PostgreSQL SSL certificate authority certificate file path.
   table\_prefix             | String                | **Optional.** PostgreSQL database table prefix. Defaults to `icinga_`.
   instance\_name            | String                | **Optional.** Unique identifier for the local Icinga 2 instance. Defaults to `default`.
   instance\_description     | String                | **Optional.** Description for the Icinga 2 instance.
@@ -1049,6 +1061,7 @@ Configuration Attributes:
   enable\_send\_metadata    | Boolean               | **Optional.** Whether to send check metadata e.g. states, execution time, latency etc.
   flush\_interval           | Duration              | **Optional.** How long to buffer data points before transferring to InfluxDB. Defaults to `10s`.
   flush\_threshold          | Number                | **Optional.** How many data points to buffer before forcing a transfer to InfluxDB.  Defaults to `1024`.
+  enable\_ha                | Boolean               | **Optional.** Enable the high availability functionality. Only valid in a [cluster setup](06-distributed-monitoring.md#distributed-monitoring-high-availability-features). Defaults to `true`.
 
 Note: If `flush_threshold` is set too low, this will always force the feature to flush all data
 to InfluxDB. Experiment with the setting, if you are processing more than 1024 metrics per second
@@ -1086,7 +1099,7 @@ Configuration Attributes:
   bind\_host                | String                | **Optional.** Only valid when `socket_type` is set to `tcp`. Host address to listen on for connections. Defaults to `127.0.0.1`.
   bind\_port                | Number                | **Optional.** Only valid when `socket_type` is set to `tcp`. Port to listen on for connections. Defaults to `6558`.
   socket\_path              | String                | **Optional.** Only valid when `socket_type` is set to `unix`. Specifies the path to the UNIX socket file. Defaults to RunDir + "/icinga2/cmd/livestatus".
-  compat\_log\_path         | String                | **Optional.** Path to Icinga 1.x log files. Required for historical table queries. Requires `CompatLogger` feature enabled. Defaults to LocalStateDir + "/log/icinga2/compat"
+  compat\_log\_path         | String                | **Optional.** Path to Icinga 1.x log files. Required for historical table queries. Requires `CompatLogger` feature enabled. Defaults to LogDir + "/compat"
 
 > **Note**
 >
@@ -1115,9 +1128,10 @@ object Notification "localhost-ping-notification" {
 
   command = "mail-notification"
 
-  users = [ "user1", "user2" ]
+  users = [ "user1", "user2" ] // reference to User objects
 
   types = [ Problem, Recovery ]
+  states = [ Critical, Warning, OK ]
 }
 ```
 
@@ -1128,15 +1142,15 @@ Configuration Attributes:
   host\_name                | Object name           | **Required.** The name of the host this notification belongs to.
   service\_name             | Object name           | **Optional.** The short name of the service this notification belongs to. If omitted, this notification object is treated as host notification.
   vars                      | Dictionary            | **Optional.** A dictionary containing custom attributes that are specific to this notification object.
-  users                     | Array of object names | **Optional.** A list of user names who should be notified.
-  user\_groups              | Array of object names | **Optional.** A list of user group names who should be notified.
+  users                     | Array of object names | **Required.** A list of user names who should be notified. **Optional.** if the `user_groups` attribute is set.
+  user\_groups              | Array of object names | **Required.** A list of user group names who should be notified. **Optional.** if the `users` attribute is set.
   times                     | Dictionary            | **Optional.** A dictionary containing `begin` and `end` attributes for the notification.
   command                   | Object name           | **Required.** The name of the notification command which should be executed when the notification is triggered.
   interval                  | Duration              | **Optional.** The notification interval (in seconds). This interval is used for active notifications. Defaults to 30 minutes. If set to 0, [re-notifications](03-monitoring-basics.md#disable-renotification) are disabled.
   period                    | Object name           | **Optional.** The name of a time period which determines when this notification should be triggered. Not set by default.
   zone		            | Object name           | **Optional.** The zone this object is a member of. Please read the [distributed monitoring](06-distributed-monitoring.md#distributed-monitoring) chapter for details.
   types                     | Array                 | **Optional.** A list of type filters when this notification should be triggered. By default everything is matched.
-  states                    | Array                 | **Optional.** A list of state filters when this notification should be triggered. By default everything is matched.
+  states                    | Array                 | **Optional.** A list of state filters when this notification should be triggered. By default everything is matched. Note that the states filter is ignored for notifications of type Acknowledgement!
 
 Available notification state filters for Service:
 
@@ -1176,15 +1190,11 @@ Runtime Attributes:
 
 A notification command definition.
 
-> **Note**
->
-> Icinga 2 versions < 2.6.0 require the import of the [plugin-notification-command](10-icinga-template-library.md#itl-plugin-notification-command) template.
-
 Example:
 
 ```
 object NotificationCommand "mail-service-notification" {
-  command = [ SysconfDir + "/icinga2/scripts/mail-service-notification.sh" ]
+  command = [ ConfigDir + "/scripts/mail-service-notification.sh" ]
 
   arguments += {
     "-4" = {
@@ -1298,7 +1308,7 @@ Example:
 object OpenTsdbWriter "opentsdb" {
   host = "127.0.0.1"
   port = 4242
-
+}
 ```
 
 Configuration Attributes:
@@ -1307,6 +1317,7 @@ Configuration Attributes:
   --------------------------|-----------------------|----------------------------------
   host            	    | String                | **Optional.** OpenTSDB host address. Defaults to `127.0.0.1`.
   port            	    | Number                | **Optional.** OpenTSDB port. Defaults to `4242`.
+  enable\_ha                | Boolean               | **Optional.** Enable the high availability functionality. Only valid in a [cluster setup](06-distributed-monitoring.md#distributed-monitoring-high-availability-features). Defaults to `true`.
 
 
 ## PerfdataWriter <a id="objecttype-perfdatawriter"></a>
@@ -1334,13 +1345,14 @@ Configuration Attributes:
 
   Name                      | Type                  | Description
   --------------------------|-----------------------|----------------------------------
-  host\_perfdata\_path      | String                | **Optional.** Path to the host performance data file. Defaults to LocalStateDir + "/spool/icinga2/perfdata/host-perfdata".
-  service\_perfdata\_path   | String                | **Optional.** Path to the service performance data file. Defaults to LocalStateDir + "/spool/icinga2/perfdata/service-perfdata".
-  host\_temp\_path          | String                | **Optional.** Path to the temporary host file. Defaults to LocalStateDir + "/spool/icinga2/tmp/host-perfdata".
-  service\_temp\_path       | String                | **Optional.** Path to the temporary service file. Defaults to LocalStateDir + "/spool/icinga2/tmp/service-perfdata".
+  host\_perfdata\_path      | String                | **Optional.** Path to the host performance data file. Defaults to SpoolDir + "/perfdata/host-perfdata".
+  service\_perfdata\_path   | String                | **Optional.** Path to the service performance data file. Defaults to SpoolDir + "/perfdata/service-perfdata".
+  host\_temp\_path          | String                | **Optional.** Path to the temporary host file. Defaults to SpoolDir + "/tmp/host-perfdata".
+  service\_temp\_path       | String                | **Optional.** Path to the temporary service file. Defaults to SpoolDir + "/tmp/service-perfdata".
   host\_format\_template    | String                | **Optional.** Host Format template for the performance data file. Defaults to a template that's suitable for use with PNP4Nagios.
   service\_format\_template | String                | **Optional.** Service Format template for the performance data file. Defaults to a template that's suitable for use with PNP4Nagios.
   rotation\_interval        | Duration              | **Optional.** Rotation interval for the files specified in `{host,service}_perfdata_path`. Defaults to `30s`.
+  enable\_ha                | Boolean               | **Optional.** Enable the high availability functionality. Only valid in a [cluster setup](06-distributed-monitoring.md#distributed-monitoring-high-availability-features). Defaults to `true`.
 
 When rotating the performance data file the current UNIX timestamp is appended to the path specified
 in `host_perfdata_path` and `service_perfdata_path` to generate a unique filename.
@@ -1388,6 +1400,7 @@ Configuration Attributes:
   fixed                     | Boolean               | **Optional.** Whether this is a fixed downtime. Defaults to `true`.
   duration                  | Duration              | **Optional.** How long the downtime lasts. Only has an effect for flexible (non-fixed) downtimes.
   ranges                    | Dictionary            | **Required.** A dictionary containing information which days and durations apply to this timeperiod.
+  child\_options            | String                | **Optional.** Schedule child downtimes. `DowntimeNoChildren` does not do anything, `DowntimeTriggeredChildren` schedules child downtimes triggered by this downtime, `DowntimeNonTriggeredChildren` schedules non-triggered downtimes. Defaults to `DowntimeNoChildren`.
 
 ScheduledDowntime objects have composite names, i.e. their names are based
 on the `host_name` and `service_name` attributes and the
@@ -1451,8 +1464,8 @@ Configuration Attributes:
   flapping\_threshold\_low  | Number                | **Optional.** Flapping lower bound in percent for a service to be considered  not flapping. `25.0`
   enable\_perfdata          | Boolean               | **Optional.** Whether performance data processing is enabled. Defaults to `true`.
   event\_command            | Object name           | **Optional.** The name of an event command that should be executed every time the service's state changes or the service is in a `SOFT` state.
-  volatile                  | Boolean               | **Optional.** The volatile setting enables always `HARD` state types if `NOT-OK` state changes occur. Defaults to `false`.
-  zone		            | Object name           | **Optional.** The zone this object is a member of. Please read the [distributed monitoring](06-distributed-monitoring.md#distributed-monitoring) chapter for details.
+  volatile                  | Boolean               | **Optional.** Treat all state changes as HARD changes. See [here](08-advanced-topics.md#volatile-services-hosts) for details. Defaults to `false`.
+  zone                      | Object name           | **Optional.** The zone this object is a member of. Please read the [distributed monitoring](06-distributed-monitoring.md#distributed-monitoring) chapter for details.
   name                      | String                | **Required.** The service name. Must be unique on a per-host basis. For advanced usage in [apply rules](03-monitoring-basics.md#using-apply) only.
   command\_endpoint         | Object name           | **Optional.** The endpoint where commands are executed on.
   notes                     | String                | **Optional.** Notes for the service.
@@ -1539,8 +1552,8 @@ Configuration Attributes:
 
   Name                      | Type                  | Description
   --------------------------|-----------------------|----------------------------------
-  status\_path              | String                | **Optional.** Path to the `status.dat` file. Defaults to LocalStateDir + "/cache/icinga2/status.dat".
-  objects\_path             | String                | **Optional.** Path to the `objects.cache` file. Defaults to LocalStateDir + "/cache/icinga2/objects.cache".
+  status\_path              | String                | **Optional.** Path to the `status.dat` file. Defaults to CacheDir + "/status.dat".
+  objects\_path             | String                | **Optional.** Path to the `objects.cache` file. Defaults to CacheDir + "/objects.cache".
   update\_interval          | Duration              | **Optional.** The interval in which the status files are updated. Defaults to `15s`.
 
 
@@ -1593,10 +1606,6 @@ Facility Constants:
 
 Time periods can be used to specify when hosts/services should be checked or to limit
 when notifications should be sent out.
-
-> **Note**
->
-> Icinga 2 versions < 2.6.0 require the import of the [legacy-timeperiod](10-icinga-template-library.md#itl-legacy-timeperiod) template.
 
 Examples:
 
@@ -1706,10 +1715,10 @@ Configuration Attributes:
   pager                     | String                | **Optional.** A pager string for this user. Useful for notification commands.
   vars                      | Dictionary            | **Optional.** A dictionary containing custom attributes that are specific to this user.
   groups                    | Array of object names | **Optional.** An array of group names.
-  enable\_notifications     | Boolean               | **Optional.** Whether notifications are enabled for this user.
+  enable\_notifications     | Boolean               | **Optional.** Whether notifications are enabled for this user. Defaults to true.
   period                    | Object name           | **Optional.** The name of a time period which determines when a notification for this user should be triggered. Not set by default.
-  types                     | Array                 | **Optional.** A set of type filters when this notification should be triggered. By default everything is matched.
-  states                    | Array                 | **Optional.** A set of state filters when this notification should be triggered. By default everything is matched.
+  types                     | Array                 | **Optional.** A set of type filters when a notification for this user should be triggered. By default everything is matched.
+  states                    | Array                 | **Optional.** A set of state filters when a notification for this should be triggered. By default everything is matched.
 
 Runtime Attributes:
 
@@ -1764,7 +1773,7 @@ Configuration Attributes:
   Name                      | Type                  | Description
   --------------------------|-----------------------|----------------------------------
   endpoints                 | Array of object names | **Optional.** Array of endpoint names located in this zone.
-  parent                    | Object name           | **Optional.** The name of the parent zone.
+  parent                    | Object name           | **Optional.** The name of the parent zone. (Do not specify a global zone)
   global                    | Boolean               | **Optional.** Whether configuration files for this zone should be [synced](06-distributed-monitoring.md#distributed-monitoring-global-zone-config-sync) to all endpoints. Defaults to `false`.
 
 Zone objects cannot currently be created with the API.

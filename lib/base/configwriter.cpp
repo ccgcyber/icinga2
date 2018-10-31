@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -239,7 +239,8 @@ const std::vector<String>& ConfigWriter::GetKeywords()
 		keywords.emplace_back("globals");
 		keywords.emplace_back("locals");
 		keywords.emplace_back("use");
-		keywords.emplace_back("__using");
+		keywords.emplace_back("using");
+		keywords.emplace_back("namespace");
 		keywords.emplace_back("default");
 		keywords.emplace_back("ignore_on_error");
 		keywords.emplace_back("current_filename");

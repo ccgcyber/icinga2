@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -24,6 +24,7 @@
 #include "base/scriptglobal.hpp"
 #include "base/logger.hpp"
 #include "base/serializer.hpp"
+#include "base/namespace.hpp"
 #include <set>
 
 using namespace icinga;
@@ -48,10 +49,10 @@ public:
 		const std::function<void (const Value&)>& addTarget) const override
 	{
 		{
-			Dictionary::Ptr globals = ScriptGlobal::GetGlobals();
+			Namespace::Ptr globals = ScriptGlobal::GetGlobals();
 			ObjectLock olock(globals);
-			for (const Dictionary::Pair& kv : globals) {
-				addTarget(GetTargetForVar(kv.first, kv.second));
+			for (const Namespace::Pair& kv : globals) {
+				addTarget(GetTargetForVar(kv.first, kv.second->Get()));
 			}
 		}
 	}
@@ -97,7 +98,7 @@ bool VariableQueryHandler::HandleRequest(const ApiUser::Ptr& user, HttpRequest& 
 	} catch (const std::exception& ex) {
 		HttpUtility::SendJsonError(response, params, 404,
 			"No variables found.",
-			HttpUtility::GetLastParameter(params, "verboseErrors") ? DiagnosticInformation(ex) : "");
+			DiagnosticInformation(ex));
 		return true;
 	}
 

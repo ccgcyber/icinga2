@@ -1,24 +1,25 @@
 # Installing Icinga 2
 
-The recommended way of installing Icinga 2 is to use packages. The Icinga
-project provides both release and development packages for a number
+The recommended way of installing Icinga 2 is to use [packages](https://packages.icinga.com).
+The Icinga project provides both release and development packages for a number
 of operating systems.
 
 Please check the documentation in the [doc/](doc/) directory for a current list
 of available packages and detailed installation instructions.
 
-The online documentation is available on [icinga.com/docs](https://www.icinga.com/docs/)
+The online documentation is available on [icinga.com/docs](https://icinga.com/docs/)
 and will guide you step by step.
 
 There are a number of known caveats when installing from source such as
 incorrect directory and file permissions. So even if you're planning to
 not use the official packages it is advisable to build your own Debian
-or RPM packages.
+or RPM packages. You can use the source packages from [packages.icinga.com](https://packages.icinga.com)
+for this purpose.
 
-**Disclaimer**
-
-This information is intended for developers and packagers. It might be incomplete or unclear
-in some cases. Make also sure to check our [packaging scripts on GitHub](https://github.com/Icinga/icinga-packaging)!
+> **Disclaimer**
+>
+> This information is intended for developers and packagers. It might be incomplete or unclear
+> in some cases. Ensure to check our [packaging scripts on GitHub](https://github.com/Icinga/icinga-packaging) too!
 
 # Build Requirements
 
@@ -44,6 +45,10 @@ application using a dist tarball (including notes for distributions):
   - Alpine: boost-dev
 * GNU bison (bison)
 * GNU flex (flex) >= 2.5.35
+* Systemd headers
+  - Only required when using Systemd
+  - Debian/Ubuntu: libsystemd-dev
+  - RHEL/Fedora: systemd-devel
 
 ## Optional features
 
@@ -66,26 +71,21 @@ application using a dist tarball (including notes for distributions):
 * Termcap (only required if libedit doesn't already link against termcap/ncurses)
   - RHEL/Fedora: libtermcap-devel
   - Debian/Ubuntu: (not necessary)
-* wxWidgets (only required when building the Icinga 2 Studio)
-  - Fedora: wxGTK-devel and wxBase
-  - Debian/Ubuntu: libwxgtk2.8-dev
 
 ## Special requirements
 
 **FreeBSD**: libexecinfo (automatically used when Icinga 2 is installed via port or package)
 
-**RHEL5** ships an ancient flex version. Updated packages are available for
-example from the repoforge buildtools repository.
-
-* x86: https://mirror.hs-esslingen.de/repoforge/redhat/el5/en/i386/buildtools/
-* x86\_64: https://mirror.hs-esslingen.de/repoforge/redhat/el5/en/x86\_64/buildtools/
+**RHEL6**: Requires a newer boost version which is available on packages.icinga.com
+with a version suffixed name.
 
 ## Runtime user environment
 
-By default Icinga will run as user 'icinga' and group 'icinga'. Additionally the
+By default Icinga will run as user `icinga` and group `icinga`. Additionally the
 external command pipe and livestatus features require a dedicated command group
-'icingacmd'. You can choose your own user/group names and pass them to CMake
+`icingacmd`. You can choose your own user/group names and pass them to CMake
 using the `ICINGA2_USER`, `ICINGA2_GROUP` and `ICINGA2_COMMAND_GROUP` variables.
+
 ```
 # groupadd icinga
 # groupadd icingacmd
@@ -93,6 +93,7 @@ using the `ICINGA2_USER`, `ICINGA2_GROUP` and `ICINGA2_COMMAND_GROUP` variables.
 ```
 
 On Alpine (which uses ash busybox) you can run:
+
 ```
 # addgroup -S icinga
 # addgroup -S icingacmd
@@ -113,14 +114,17 @@ is running as.
 
 Once you have installed all the necessary build requirements you can build
 Icinga 2 using the following commands:
+
 ```
-$ mkdir build && cd build
+$ mkdir release && cd release
 $ cmake ..
-$ make
-$ make install
+$ cd ..
+$ make -C release
+$ make install -C release
 ```
 
 You can specify an alternative installation prefix using `-DCMAKE_INSTALL_PREFIX`:
+
 ```
 $ cmake .. -DCMAKE_INSTALL_PREFIX=/tmp/icinga2
 ```
@@ -129,20 +133,30 @@ $ cmake .. -DCMAKE_INSTALL_PREFIX=/tmp/icinga2
 
 In addition to `CMAKE_INSTALL_PREFIX` here are most of the supported Icinga-specific cmake variables.
 
+For all variables regarding defaults paths on in CMake, see
+[GNUInstallDirs](https://cmake.org/cmake/help/latest/module/GNUInstallDirs.html).
+
+Also see `CMakeLists.txt` for details.
+
 **System Environment**
+- `CMAKE_INSTALL_SYSCONFDIR`: The configuration directory; defaults to `CMAKE_INSTALL_PREFIX/etc`
+- `CMAKE_INSTALL_LOCALSTATEDIR`: The state directory; defaults to `CMAKE_INSTALL_PREFIX/var`
+- `ICINGA2_CONFIGDIR`: Main config directory; defaults to `CMAKE_INSTALL_SYSCONFDIR/icinga2` usually `/etc/icinga2`
+- `ICINGA2_CACHEDIR`: Directory for cache files; defaults to `CMAKE_INSTALL_LOCALSTATEDIR/cache/icinga2` usually `/var/cache/icinga2`
+- `ICINGA2_DATADIR`: Data directory  for the daemon; defaults to `CMAKE_INSTALL_LOCALSTATEDIR/lib/icinga2` usually `/var/lib/icinga2`
+- `ICINGA2_LOGDIR`: Logfiles of the daemon; defaults to `CMAKE_INSTALL_LOCALSTATEDIR/log/icinga2 usually `/var/log/icinga2`
+- `ICINGA2_SPOOLDIR`: Spooling directory ; defaults to `CMAKE_INSTALL_LOCALSTATEDIR/spool/icinga2` usually `/var/spool/icinga2`
+- `ICINGA2_INITRUNDIR`: Runtime data for the init system; defaults to `CMAKE_INSTALL_LOCALSTATEDIR/run/icinga2` usually `/run/icinga2`
 - `ICINGA2_GIT_VERSION_INFO`: Whether to use Git to determine the version number; defaults to `ON`
 - `ICINGA2_USER`: The user Icinga 2 should run as; defaults to `icinga`
 - `ICINGA2_GROUP`: The group Icinga 2 should run as; defaults to `icinga`
 - `ICINGA2_COMMAND_GROUP`: The command group Icinga 2 should use; defaults to `icingacmd`
-- `ICINGA2_RUNDIR`: The location of the "run" directory; defaults to `CMAKE_INSTALL_LOCALSTATEDIR/run`
-- `CMAKE_INSTALL_SYSCONFDIR`: The configuration directory; defaults to `CMAKE_INSTALL_PREFIX/etc`
 - `ICINGA2_SYSCONFIGFILE`: Where to put the config file the initscript/systemd pulls it's dirs from;
   defaults to `CMAKE_INSTALL_PREFIX/etc/sysconfig/icinga2`
-- `CMAKE_INSTALL_LOCALSTATEDIR`: The state directory; defaults to `CMAKE_INSTALL_PREFIX/var`
 - `ICINGA2_PLUGINDIR`: The path for the Monitoring Plugins project binaries; defaults to `/usr/lib/nagios/plugins`
 
 **Build Optimization**
-- `ICINGA2_UNITY_BUILD`: Whether to perform a unity build; defaults to `ON`
+- `ICINGA2_UNITY_BUILD`: Whether to perform a unity build; defaults to `ON`. Note: This requires additional memory and is not advised for building VMs, Docker for Mac and embedded hardware.
 - `ICINGA2_LTO_BUILD`: Whether to use link time optimization (LTO); defaults to `OFF`
 
 **Init System**
@@ -160,7 +174,6 @@ In addition to `CMAKE_INSTALL_PREFIX` here are most of the supported Icinga-spec
 - `ICINGA2_WITH_LIVESTATUS`: Determines whether the Livestatus module is built; defaults to `ON`
 - `ICINGA2_WITH_NOTIFICATION`: Determines whether the notification module is built; defaults to `ON`
 - `ICINGA2_WITH_PERFDATA`: Determines whether the perfdata module is built; defaults to `ON`
-- `ICINGA2_WITH_STUDIO`: Determines whether the Icinga Studio application is built; defaults to `OFF`
 - `ICINGA2_WITH_TESTS`: Determines whether the unit tests are built; defaults to `ON`
 
 **MySQL or MariaDB:**
@@ -180,7 +193,7 @@ The following settings can be tuned for the PostgreSQL IDO feature.
 
 - `ICINGA2_WITH_PGSQL`: Determines whether the PostgreSQL IDO module is built; defaults to `ON`
 - `PostgreSQL_INCLUDE_DIR`: Top-level directory containing the PostgreSQL include directories
-- `PostgreSQL_LIBRARY_DIR`: Top-level directory containing the PostgreSQL libraries
+- `PostgreSQL_LIBRARY`: File path to PostgreSQL library : libpq.so (or libpq.so.[ver] file)
 
 See [FindMySQL.cmake](third-party/cmake/FindPostgreSQL.cmake) for the implementation.
 
@@ -188,7 +201,7 @@ See [FindMySQL.cmake](third-party/cmake/FindPostgreSQL.cmake) for the implementa
 
 CMake determines the Icinga 2 version number using `git describe` if the
 source directory is contained in a Git repository. Otherwise the version number
-is extracted from the [icinga2.spec](icinga2.spec) file. This behavior can be
+is extracted from the [VERSION](VERSION) file. This behavior can be
 overridden by creating a file called `icinga-version.h.force` in the source
 directory. Alternatively the `-DICINGA2_GIT_VERSION_INFO=OFF` option for CMake
 can be used to disable the usage of `git describe`.
@@ -232,8 +245,13 @@ rpmdev-setuptree
 
 Copy the icinga2.spec file to `rpmbuild/SPEC` or fetch the latest version:
 ```
-curl https://raw.githubusercontent.com/Icinga/icinga2/master/icinga2.spec -o $HOME/rpmbuild/SPECS/icinga2.spec
+curl https://raw.githubusercontent.com/Icinga/rpm-icinga2/master/icinga2.spec -o $HOME/rpmbuild/SPECS/icinga2.spec
 ```
+
+> **Note**
+>
+> The above command builds snapshot packages. Change to the `release` branch
+> for release package builds.
 
 Copy the tarball to `rpmbuild/SOURCES` e.g. by using the `spectool` binary
 provided with `rpmdevtools`:
@@ -273,7 +291,7 @@ The following packages are required to build the SELinux policy module:
 * selinux-policy (selinux-policy on CentOS 6, selinux-policy-devel on CentOS 7)
 * selinux-policy-doc
 
-#### RHEL/CentOS 5 and 6
+#### RHEL/CentOS 6
 
 The RedHat Developer Toolset is required for building Icinga 2 beforehand.
 This contains a modern version of flex and a C++ compiler which supports
@@ -313,7 +331,7 @@ added before building.
 > **WARNING:** This information is outdated!
 
 Setup your build environment on Debian/Ubuntu, copy the 'debian' directory from
-the Debian packaging Git repository (https://github.com/Icinga/pkg-icinga2-debian)
+the Debian packaging Git repository (https://github.com/Icinga/deb-icinga2)
 into your source tree and run the following command:
 ```
 $ dpkg-buildpackage -uc -us

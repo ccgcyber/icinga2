@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -142,12 +142,12 @@ void TimePeriod::RemoveSegment(double begin, double end)
 	for (const Dictionary::Ptr& segment : segments) {
 		/* Fully contained in the specified range? */
 		if (segment->Get("begin") >= begin && segment->Get("end") <= end)
+			// Don't add the old segment, because the segment is fully contained into our range
 			continue;
 
 		/* Not overlapping at all? */
 		if (segment->Get("end") < begin || segment->Get("begin") > end) {
 			newSegments->Add(segment);
-
 			continue;
 		}
 
@@ -162,6 +162,8 @@ void TimePeriod::RemoveSegment(double begin, double end)
 				{ "begin", end },
 				{ "end", segment->Get("end") }
 			}));
+			// Don't add the old segment, because we have now two new segments and a gap between
+			continue;
 		}
 
 		/* Adjust the begin/end timestamps so as to not overlap with the specified range. */
@@ -235,7 +237,9 @@ void TimePeriod::Merge(const TimePeriod::Ptr& timeperiod, bool include)
 
 void TimePeriod::UpdateRegion(double begin, double end, bool clearExisting)
 {
-	if (!clearExisting) {
+	if (clearExisting) {
+		SetSegments(new Array());
+	} else {
 		if (begin < GetValidEnd())
 			begin = GetValidEnd();
 

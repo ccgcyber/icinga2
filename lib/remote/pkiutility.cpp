@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -121,8 +121,10 @@ std::shared_ptr<X509> PkiUtility::FetchCert(const String& host, const String& po
 
 	try {
 		stream->Handshake();
-	} catch (...) {
-
+	} catch (const std::exception& ex) {
+		Log(LogCritical, "pki")
+			<< "Client TLS handshake failed. (" << ex.what() << ")";
+		return std::shared_ptr<X509>();
 	}
 
 	return stream->GetPeerCertificate();
@@ -185,8 +187,9 @@ int PkiUtility::RequestCertificate(const String& host, const String& port, const
 
 	try {
 		stream->Handshake();
-	} catch (const std::exception&) {
-		Log(LogCritical, "cli", "Client TLS handshake failed.");
+	} catch (const std::exception& ex) {
+		Log(LogCritical, "cli")
+			<< "Client TLS handshake failed: " << DiagnosticInformation(ex, false);
 		return 1;
 	}
 

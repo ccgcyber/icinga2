@@ -588,7 +588,7 @@ for [custom attributes](03-monitoring-basics.md#custom-attributes-functions) whi
 use the [abbreviated lambda syntax](17-language-reference.md#nullary-lambdas).
 
 This example sets the `snmp_address` custom attribute
-based on `$address$` and `$address6`.
+based on `$address$` and `$address6$`.
 
 ```
   vars.snmp_address = {{
@@ -1260,6 +1260,14 @@ Signature:
 
 Returns true if the array contains the specified value, false otherwise.
 
+### Array#freeze <a id="array-freeze"></a>
+
+Signature:
+
+    function freeze()
+
+Disallows further modifications to this array. Trying to modify the array will result in an exception.
+
 ### Array#len <a id="array-len"></a>
 
 Signature:
@@ -1395,6 +1403,14 @@ Signature:
 
 Returns true if a dictionary item with the specified `key` exists, false otherwise.
 
+### Dictionary#freeze <a id="dictionary-freeze"></a>
+
+Signature:
+
+    function freeze()
+
+Disallows further modifications to this dictionary. Trying to modify the dictionary will result in an exception.
+
 ### Dictionary#len <a id="dictionary-len"></a>
 
 Signature:
@@ -1411,6 +1427,14 @@ Signature:
 
 Removes the item with the specified `key`. Trying to remove an item which does not exist
 is a no-op.
+
+### Dictionary#clear <a id="dictionary-clear"></a>
+
+Signature:
+
+    function clear();
+
+Removes all items from the dictionary.
 
 ### Dictionary#set <a id="dictionary-set"></a>
 

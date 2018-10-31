@@ -66,7 +66,7 @@ There is a detailed chapter on [distributed monitoring scenarios](06-distributed
 Please ensure to have read the [introduction](06-distributed-monitoring.md#distributed-monitoring) at first glance.
 
 If you happen to have further questions, do not hesitate to join the
-[community support channels](https://www.icinga.com/community/get-involved/)
+[community support channels](https://icinga.com/community/)
 and ask community members for their experience and best practices.
 
 ## Your Configuration <a id="your-configuration"></a>
@@ -653,8 +653,10 @@ More details on `Notification` object attributes can be found [here](09-object-t
 The `load` service apply rule defined in [services.conf](04-configuring-icinga-2.md#services-conf) defines
 the `backup_downtime` custom attribute.
 
-The [ScheduledDowntime](09-object-types.md#objecttype-scheduleddowntime) apply rule uses this attribute
-to define the default value for the time ranges required for recurring downtime slots.
+The ScheduledDowntime apply rule uses this attribute to define the default value
+for the time ranges required for recurring downtime slots.
+
+Learn more about downtimes in [this chapter](08-advanced-topics.md#downtimes).
 
     apply ScheduledDowntime "backup-downtime" to Service {
       author = "icingaadmin"

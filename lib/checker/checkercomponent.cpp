@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -125,7 +125,7 @@ void CheckerComponent::CheckThreadProc()
 
 		if (wait > 0) {
 			/* Wait for the next check. */
-			m_CV.timed_wait(lock, boost::posix_time::milliseconds(wait * 1000));
+			m_CV.timed_wait(lock, boost::posix_time::milliseconds(long(wait * 1000)));
 
 			continue;
 		}
@@ -174,6 +174,9 @@ void CheckerComponent::CheckThreadProc()
 			m_IdleCheckables.insert(GetCheckableScheduleInfo(checkable));
 			lock.unlock();
 
+			Log(LogDebug, "CheckerComponent")
+				<< "Checks for checkable '" << checkable->GetName() << "' are disabled. Rescheduling check.";
+
 			checkable->UpdateNextCheck();
 
 			lock.lock();
@@ -181,7 +184,16 @@ void CheckerComponent::CheckThreadProc()
 			continue;
 		}
 
-		m_PendingCheckables.insert(GetCheckableScheduleInfo(checkable));
+
+		csi = GetCheckableScheduleInfo(checkable);
+
+		Log(LogDebug, "CheckerComponent")
+			<< "Scheduling info for checkable '" << checkable->GetName() << "' ("
+			<< Utility::FormatDateTime("%Y-%m-%d %H:%M:%S %z", checkable->GetNextCheck()) << "): Object '"
+			<< csi.Object->GetName() << "', Next Check: "
+			<< Utility::FormatDateTime("%Y-%m-%d %H:%M:%S %z", csi.NextCheck) << "(" << csi.NextCheck << ").";
+
+		m_PendingCheckables.insert(csi);
 
 		lock.unlock();
 
@@ -209,7 +221,7 @@ void CheckerComponent::ExecuteCheckHelper(const Checkable::Ptr& checkable)
 		CheckResult::Ptr cr = new CheckResult();
 		cr->SetState(ServiceUnknown);
 
-		String output = "Exception occured while checking '" + checkable->GetName() + "': " + DiagnosticInformation(ex);
+		String output = "Exception occurred while checking '" + checkable->GetName() + "': " + DiagnosticInformation(ex);
 		cr->SetOutput(output);
 
 		double now = Utility::GetTime();

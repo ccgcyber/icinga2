@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -361,3 +361,12 @@ bool ConfigCompiler::IsAbsolutePath(const String& path)
 #endif /* _WIN32 */
 }
 
+void ConfigCompiler::AddImport(const std::shared_ptr<Expression>& import)
+{
+	m_Imports.push_back(import);
+}
+
+std::vector<std::shared_ptr<Expression> > ConfigCompiler::GetImports() const
+{
+	return m_Imports;
+}

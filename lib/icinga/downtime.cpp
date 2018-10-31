@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -41,6 +41,15 @@ boost::signals2::signal<void (const Downtime::Ptr&)> Downtime::OnDowntimeStarted
 boost::signals2::signal<void (const Downtime::Ptr&)> Downtime::OnDowntimeTriggered;
 
 REGISTER_TYPE(Downtime);
+
+INITIALIZE_ONCE(&Downtime::StaticInitialize);
+
+void Downtime::StaticInitialize()
+{
+	ScriptGlobal::Set("Icinga.DowntimeNoChildren", "DowntimeNoChildren", true);
+	ScriptGlobal::Set("Icinga.DowntimeTriggeredChildren", "DowntimeTriggeredChildren", true);
+	ScriptGlobal::Set("Icinga.DowntimeNonTriggeredChildren", "DowntimeNonTriggeredChildren", true);
+}
 
 String DowntimeNameComposer::MakeName(const String& shortName, const Object::Ptr& context) const
 {
@@ -158,16 +167,15 @@ bool Downtime::IsInEffect() const
 {
 	double now = Utility::GetTime();
 
-	if (now < GetStartTime() ||
-		now > GetEndTime())
-		return false;
-
-	if (GetFixed())
-		return true;
+	if (GetFixed()) {
+		/* fixed downtimes are in effect during the entire [start..end) interval */
+		return (now >= GetStartTime() && now < GetEndTime());
+	}
 
 	double triggerTime = GetTriggerTime();
 
 	if (triggerTime == 0)
+		/* flexible downtime has not been triggered yet */
 		return false;
 
 	return (now < triggerTime + GetDuration());
@@ -256,7 +264,7 @@ String Downtime::AddDowntime(const Checkable::Ptr& checkable, const String& auth
 
 	Array::Ptr errors = new Array();
 
-	if (!ConfigObjectUtility::CreateObject(Downtime::TypeInstance, fullName, config, errors)) {
+	if (!ConfigObjectUtility::CreateObject(Downtime::TypeInstance, fullName, config, errors, nullptr)) {
 		ObjectLock olock(errors);
 		for (const String& error : errors) {
 			Log(LogCritical, "Downtime", error);
@@ -309,7 +317,7 @@ void Downtime::RemoveDowntime(const String& id, bool cancelled, bool expired, co
 
 	Array::Ptr errors = new Array();
 
-	if (!ConfigObjectUtility::DeleteObject(downtime, false, errors)) {
+	if (!ConfigObjectUtility::DeleteObject(downtime, false, errors, nullptr)) {
 		ObjectLock olock(errors);
 		for (const String& error : errors) {
 			Log(LogCritical, "Downtime", error);
@@ -420,4 +428,21 @@ void Downtime::ValidateEndTime(const Lazy<Timestamp>& lvalue, const ValidationUt
 
 	if (lvalue() <= 0)
 		BOOST_THROW_EXCEPTION(ValidationError(this, { "end_time" }, "End time must be greater than 0."));
+}
+
+DowntimeChildOptions Downtime::ChildOptionsFromValue(const Value& options)
+{
+	if (options == "DowntimeNoChildren")
+		return DowntimeNoChildren;
+	else if (options == "DowntimeTriggeredChildren")
+		return DowntimeTriggeredChildren;
+	else if (options == "DowntimeNonTriggeredChildren")
+		return DowntimeNonTriggeredChildren;
+	else if (options.IsNumber()) {
+		int number = options;
+		if (number >= 0 && number <= 2)
+			return static_cast<DowntimeChildOptions>(number);
+	}
+
+	BOOST_THROW_EXCEPTION(std::invalid_argument("Invalid child option specified"));
 }

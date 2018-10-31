@@ -1,5 +1,5 @@
 # Icinga 2
-# Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)
+# Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -17,6 +17,7 @@
 
 mkclass_target(application.ti application-ti.cpp application-ti.hpp)
 mkclass_target(configobject.ti configobject-ti.cpp configobject-ti.hpp)
+mkclass_target(configuration.ti configuration-ti.cpp configuration-ti.hpp)
 mkclass_target(datetime.ti datetime-ti.cpp datetime-ti.hpp)
 mkclass_target(filelogger.ti filelogger-ti.cpp filelogger-ti.hpp)
 mkclass_target(function.ti function-ti.cpp function-ti.hpp)
@@ -27,12 +28,13 @@ mkclass_target(sysloglogger.ti sysloglogger-ti.cpp sysloglogger-ti.hpp)
 
 set(base_SOURCES
   i2-base.hpp
-  application.cpp application.hpp application-ti.hpp application-version.cpp
+  application.cpp application.hpp application-ti.hpp application-version.cpp application-environment.cpp
   array.cpp array.hpp array-script.cpp
   base64.cpp base64.hpp
   boolean.cpp boolean.hpp boolean-script.cpp
   configobject.cpp configobject.hpp configobject-ti.hpp configobject-script.cpp
   configtype.cpp configtype.hpp
+  configuration.cpp configuration.hpp configuration-ti.hpp
   configwriter.cpp configwriter.hpp
   console.cpp console.hpp
   context.cpp context.hpp
@@ -54,13 +56,16 @@ set(base_SOURCES
   math-script.cpp
   netstring.cpp netstring.hpp
   networkstream.cpp networkstream.hpp
+  namespace.cpp namespace.hpp namespace-script.cpp
   number.cpp number.hpp number-script.cpp
   object.cpp object.hpp object-script.cpp
   objectlock.cpp objectlock.hpp
+  object-packer.cpp object-packer.hpp
   objecttype.cpp objecttype.hpp
   perfdatavalue.cpp perfdatavalue.hpp perfdatavalue-ti.hpp
   primitivetype.cpp primitivetype.hpp
   process.cpp process.hpp
+  reference.cpp reference.hpp reference-script.cpp
   registry.hpp
   ringbuffer.cpp ringbuffer.hpp
   scriptframe.cpp scriptframe.hpp
@@ -97,6 +102,13 @@ if(ICINGA2_UNITY_BUILD)
   mkunity_target(base base base_SOURCES)
 endif()
 
+if(HAVE_SYSTEMD)
+  find_path(SYSTEMD_INCLUDE_DIR
+    NAMES systemd/sd-daemon.h
+    HINTS ${SYSTEMD_ROOT_DIR})
+  include_directories(${SYSTEMD_INCLUDE_DIR})
+endif()
+
 add_library(base OBJECT ${base_SOURCES})
 
 include_directories(${icinga2_SOURCE_DIR}/third-party/execvpe)
@@ -113,7 +125,7 @@ set_target_properties (
   FOLDER Lib
 )
 
-install(CODE "file(MAKE_DIRECTORY \"\$ENV{DESTDIR}${CMAKE_INSTALL_FULL_LOCALSTATEDIR}/cache/icinga2\")")
-install(CODE "file(MAKE_DIRECTORY \"\$ENV{DESTDIR}${CMAKE_INSTALL_FULL_LOCALSTATEDIR}/log/icinga2/crash\")")
+install(CODE "file(MAKE_DIRECTORY \"\$ENV{DESTDIR}${ICINGA2_FULL_CACHEDIR}\")")
+install(CODE "file(MAKE_DIRECTORY \"\$ENV{DESTDIR}${ICINGA2_FULL_LOGDIR}/crash\")")
 
 set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "${CPACK_NSIS_EXTRA_INSTALL_COMMANDS}" PARENT_SCOPE)

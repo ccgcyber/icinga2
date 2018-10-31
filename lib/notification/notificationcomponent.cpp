@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -119,17 +119,18 @@ void NotificationComponent::NotificationTimerHandler()
 			if ((service && service->GetState() == ServiceOK) || (!service && host->GetState() == HostUp))
 				continue;
 
-			if (!reachable || checkable->IsInDowntime() || checkable->IsAcknowledged())
+			if (!reachable || checkable->IsInDowntime() || checkable->IsAcknowledged() || checkable->IsFlapping())
 				continue;
 		}
 
 		try {
 			Log(LogNotice, "NotificationComponent")
 				<< "Attempting to send reminder notification '" << notification->GetName() << "'";
+
 			notification->BeginExecuteNotification(NotificationProblem, checkable->GetLastCheckResult(), false, true);
 		} catch (const std::exception& ex) {
 			Log(LogWarning, "NotificationComponent")
-				<< "Exception occured during notification for object '"
+				<< "Exception occurred during notification for object '"
 				<< GetName() << "': " << DiagnosticInformation(ex);
 		}
 	}

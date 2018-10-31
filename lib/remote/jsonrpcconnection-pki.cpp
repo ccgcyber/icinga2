@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -40,9 +40,6 @@ REGISTER_APIFUNCTION(UpdateCertificate, pki, &UpdateCertificateHandler);
 
 Value RequestCertificateHandler(const MessageOrigin::Ptr& origin, const Dictionary::Ptr& params)
 {
-	if (!params)
-		return Empty;
-
 	String certText = params->Get("cert_request");
 
 	std::shared_ptr<X509> cert;
@@ -79,9 +76,9 @@ Value RequestCertificateHandler(const MessageOrigin::Ptr& origin, const Dictiona
 		if (X509_cmp_time(X509_get_notBefore(cert.get()), &forceRenewalEnd) != -1 && X509_cmp_time(X509_get_notAfter(cert.get()), &renewalStart) != -1) {
 
 			Log(LogInformation, "JsonRpcConnection")
-				<< "The certificate for CN '" << cn << "' cannot be renewed yet.";
+				<< "The certificate for CN '" << cn << "' is valid and uptodate. Skipping automated renewal.";
 			result->Set("status_code", 1);
-			result->Set("error", "The certificate for CN '" + cn + "' cannot be renewed yet.");
+			result->Set("error", "The certificate for CN '" + cn + "' is valid and uptodate. Skipping automated renewal.");
 			return result;
 		}
 	}
@@ -165,7 +162,7 @@ Value RequestCertificateHandler(const MessageOrigin::Ptr& origin, const Dictiona
 
 		if (ticket != realTicket) {
 			Log(LogWarning, "JsonRpcConnection")
-				<< "Ticket for CN '" << cn << "' is invalid.";
+				<< "Ticket '" << ticket << "' for CN '" << cn << "' is invalid.";
 
 			result->Set("status_code", 1);
 			result->Set("error", "Invalid ticket for CN '" + cn + "'.");

@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -20,6 +20,7 @@
 #include "icinga/cib.hpp"
 #include "icinga/host.hpp"
 #include "icinga/service.hpp"
+#include "icinga/clusterevents.hpp"
 #include "base/objectlock.hpp"
 #include "base/utility.hpp"
 #include "base/perfdatavalue.hpp"
@@ -267,13 +268,13 @@ std::pair<Dictionary::Ptr, Array::Ptr> CIB::GetFeatureStats()
 	Dictionary::Ptr status = new Dictionary();
 	Array::Ptr perfdata = new Array();
 
-	Dictionary::Ptr statsFunctions = ScriptGlobal::Get("StatsFunctions", &Empty);
+	Namespace::Ptr statsFunctions = ScriptGlobal::Get("StatsFunctions", &Empty);
 
 	if (statsFunctions) {
 		ObjectLock olock(statsFunctions);
 
-		for (const Dictionary::Pair& kv : statsFunctions)
-			static_cast<Function::Ptr>(kv.second)->Invoke({ status, perfdata });
+		for (const Namespace::Pair& kv : statsFunctions)
+			static_cast<Function::Ptr>(kv.second->Get())->Invoke({ status, perfdata });
 	}
 
 	return std::make_pair(status, perfdata);
@@ -304,6 +305,8 @@ void CIB::StatsFunc(const Dictionary::Ptr& status, const Array::Ptr& perfdata) {
 	status->Set("passive_service_checks_5min", GetPassiveServiceChecksStatistics(60 * 5));
 	status->Set("active_service_checks_15min", GetActiveServiceChecksStatistics(60 * 15));
 	status->Set("passive_service_checks_15min", GetPassiveServiceChecksStatistics(60 * 15));
+
+	status->Set("remote_check_queue", ClusterEvents::GetCheckRequestQueueSize());
 
 	CheckableCheckStatistics scs = CalculateServiceCheckStats();
 

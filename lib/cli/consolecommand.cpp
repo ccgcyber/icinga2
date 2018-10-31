@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -135,7 +135,8 @@ void ConsoleCommand::BreakpointHandler(ScriptFrame& frame, ScriptError *ex, cons
 		ShowCodeLocation(std::cout, di);
 
 	std::cout << "You can inspect expressions (such as variables) by entering them at the prompt.\n"
-			<< "To leave the debugger and continue the program use \"$continue\".\n";
+		<< "To leave the debugger and continue the program use \"$continue\".\n"
+		<< "For further commands see \"$help\".\n";
 
 #ifdef HAVE_EDITLINE
 	rl_completion_entry_function = ConsoleCommand::ConsoleCompleteHelper;
@@ -240,7 +241,9 @@ int ConsoleCommand::Run(const po::variables_map& vm, const std::vector<std::stri
 	scriptFrame.Self = scriptFrame.Locals;
 
 	if (!vm.count("eval") && !vm.count("file"))
-		std::cout << "Icinga 2 (version: " << Application::GetAppVersion() << ")\n";
+		std::cout << "Icinga 2 (version: " << Application::GetAppVersion() << ")\n"
+			<< "Type $help to view available commands.\n";
+
 
 	const char *addrEnv = getenv("ICINGA2_API_URL");
 	if (addrEnv)
@@ -287,17 +290,22 @@ int ConsoleCommand::RunScriptConsole(ScriptFrame& scriptFrame, const String& add
 	int next_line = 1;
 
 #ifdef HAVE_EDITLINE
-	String homeEnv = getenv("HOME");
-	String historyPath = homeEnv + "/.icinga2_history";
+	char *homeEnv = getenv("HOME");
 
+	String historyPath;
 	std::fstream historyfp;
-	historyfp.open(historyPath.CStr(), std::fstream::in);
 
-	String line;
-	while (std::getline(historyfp, line.GetData()))
-		add_history(line.CStr());
+	if (homeEnv) {
+		historyPath = String(homeEnv) + "/.icinga2_history";
 
-	historyfp.close();
+		historyfp.open(historyPath.CStr(), std::fstream::in);
+
+		String line;
+		while (std::getline(historyfp, line.GetData()))
+			add_history(line.CStr());
+
+		historyfp.close();
+	}
 #endif /* HAVE_EDITLINE */
 
 	l_ScriptFrame = &scriptFrame;
@@ -370,9 +378,11 @@ incomplete:
 			if (commandOnce.IsEmpty() && cline[0] != '\0') {
 				add_history(cline);
 
-				historyfp.open(historyPath.CStr(), std::fstream::out | std::fstream::app);
-				historyfp << cline << "\n";
-				historyfp.close();
+				if (!historyPath.IsEmpty()) {
+					historyfp.open(historyPath.CStr(), std::fstream::out | std::fstream::app);
+					historyfp << cline << "\n";
+					historyfp.close();
+				}
 			}
 
 			line = cline;
@@ -385,10 +395,18 @@ incomplete:
 			line = commandOnce;
 
 		if (!line.empty() && line[0] == '$') {
-			if (line == "$continue")
+			if (line == "$continue" || line == "$quit" || line == "$exit")
 				break;
+			else if (line == "$help")
+				std::cout << "Welcome to the Icinga 2 debug console.\n"
+					"Usable commands:\n"
+					"  $continue      Continue running Icinga 2 (script debugger).\n"
+					"  $quit, $exit   Stop debugging and quit the console.\n"
+					"  $help          Print this help.\n\n"
+					"For more information on how to use this console, please consult the documentation at https://icinga.com/docs\n";
+			else
+				std::cout << "Unknown debugger command: " << line << "\n";
 
-			std::cout << "Unknown debugger command: " << line << "\n";
 			continue;
 		}
 
@@ -514,6 +532,12 @@ void ConsoleCommand::ExecuteScriptCompletionHandler(boost::mutex& mutex, boost::
 		} catch (const std::exception& ex) {
 			Log(LogCritical, "ConsoleCommand")
 				<< "HTTP query failed: " << ex.what();
+
+#ifdef HAVE_EDITLINE
+			/* Ensures that the terminal state is resetted */
+			rl_deprep_terminal();
+#endif /* HAVE_EDITLINE */
+
 			Application::Exit(EXIT_FAILURE);
 		}
 	}
@@ -536,6 +560,12 @@ void ConsoleCommand::AutocompleteScriptCompletionHandler(boost::mutex& mutex, bo
 		} catch (const std::exception& ex) {
 			Log(LogCritical, "ConsoleCommand")
 				<< "HTTP query failed: " << ex.what();
+
+#ifdef HAVE_EDITLINE
+			/* Ensures that the terminal state is resetted */
+			rl_deprep_terminal();
+#endif /* HAVE_EDITLINE */
+
 			Application::Exit(EXIT_FAILURE);
 		}
 	}

@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -27,17 +27,19 @@ namespace icinga
 
 class PerfdataWriter : ConfigObject
 {
+	activation_priority 100;
+
 	[config] String host_perfdata_path {
-		default {{{ return Application::GetLocalStateDir() + "/spool/icinga2/perfdata/host-perfdata"; }}}
+		default {{{ return Configuration::SpoolDir + "/perfdata/host-perfdata"; }}}
 	};
 	[config] String service_perfdata_path {
-		default {{{ return Application::GetLocalStateDir() + "/spool/icinga2/perfdata/service-perfdata"; }}}
+		default {{{ return Configuration::SpoolDir + "/perfdata/service-perfdata"; }}}
 	};
 	[config] String host_temp_path {
-		default {{{ return Application::GetLocalStateDir() + "/spool/icinga2/tmp/host-perfdata"; }}}
+		default {{{ return Configuration::SpoolDir + "/tmp/host-perfdata"; }}}
 	};
 	[config] String service_temp_path {
-		default {{{ return Application::GetLocalStateDir() + "/spool/icinga2/tmp/service-perfdata"; }}}
+		default {{{ return Configuration::SpoolDir + "/tmp/service-perfdata"; }}}
 	};
 	[config] String host_format_template {
 		default {{{
@@ -67,6 +69,9 @@ class PerfdataWriter : ConfigObject
 
 	[config] double rotation_interval {
 		default {{{ return 30; }}}
+	};
+	[config] bool enable_ha {
+		default {{{ return true; }}}
 	};
 };
 

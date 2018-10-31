@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -28,6 +28,13 @@
 namespace icinga
 {
 
+enum DowntimeChildOptions
+{
+	DowntimeNoChildren,
+	DowntimeTriggeredChildren,
+	DowntimeNonTriggeredChildren
+};
+
 /**
  * A downtime.
  *
@@ -51,6 +58,8 @@ public:
 	bool IsExpired() const;
 	bool HasValidConfigOwner() const;
 
+	static void StaticInitialize();
+
 	static int GetNextDowntimeID();
 
 	static String AddDowntime(const intrusive_ptr<Checkable>& checkable, const String& author,
@@ -64,6 +73,8 @@ public:
 	void TriggerDowntime();
 
 	static String GetDowntimeIDFromLegacyID(int id);
+
+	static DowntimeChildOptions ChildOptionsFromValue(const Value& options);
 
 protected:
 	void OnAllConfigLoaded() override;

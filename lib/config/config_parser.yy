@@ -3,7 +3,7 @@
  
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)  *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -149,8 +149,9 @@ static void MakeRBinaryOp(Expression** result, Expression *left, Expression *rig
 %token T_CURRENT_FILENAME "current_filename (T_CURRENT_FILENAME)"
 %token T_CURRENT_LINE "current_line (T_CURRENT_LINE)"
 %token T_DEBUGGER "debugger (T_DEBUGGER)"
+%token T_NAMESPACE "namespace (T_NAMESPACE)"
 %token T_USE "use (T_USE)"
-%token T_USING "__using (T_USING)"
+%token T_USING "using (T_USING)"
 %token T_OBJECT "object (T_OBJECT)"
 %token T_TEMPLATE "template (T_TEMPLATE)"
 %token T_INCLUDE "include (T_INCLUDE)"
@@ -227,6 +228,7 @@ static void MakeRBinaryOp(Expression** result, Expression *left, Expression *rig
 %left T_PLUS T_MINUS
 %left T_MULTIPLY T_DIVIDE_OP T_MODULO
 %left UNARY_MINUS UNARY_PLUS
+%right REF_OP DEREF_OP
 %right '!' '~'
 %left '.' '(' '['
 %left T_VAR T_THIS T_GLOBALS T_LOCALS
@@ -388,7 +390,7 @@ object:
 		bool defaultTmpl = $6;
 
 		if (!abstract && defaultTmpl)
-			BOOST_THROW_EXCEPTION(ScriptError("'default' keyword is invalid for object definitions", DebugInfoRange(@2, @4)));
+			BOOST_THROW_EXCEPTION(ScriptError("'default' keyword is invalid for object definitions", @6));
 
 		bool seen_assign = context->m_SeenAssign.top();
 		context->m_SeenAssign.pop();
@@ -467,6 +469,10 @@ combined_set_op: T_SET
 	| T_SET_XOR
 	| T_SET_BINARY_AND
 	| T_SET_BINARY_OR
+	;
+
+optional_var: /* empty */
+	| T_VAR
 	;
 
 lterm: T_LIBRARY rterm
@@ -597,13 +603,27 @@ lterm: T_LIBRARY rterm
 	{
 		$$ = new BreakpointExpression(@$);
 	}
+	| T_NAMESPACE rterm
+	{
+		BeginFlowControlBlock(context, FlowControlReturn, false);
+	}
+	rterm_scope_require_side_effect
+	{
+		EndFlowControlBlock(context);
+
+		std::unique_ptr<Expression> expr{$2};
+		BindToScope(expr, ScopeGlobal);
+		$$ = new SetExpression(std::move(expr), OpSetLiteral, std::unique_ptr<Expression>(new NamespaceExpression(std::unique_ptr<Expression>($4), @$)), @$);
+	}
 	| T_USING rterm
 	{
-		$$ = new UsingExpression(std::unique_ptr<Expression>($2), @$);
+		std::shared_ptr<Expression> expr{$2};
+		context->AddImport(expr);
+		$$ = MakeLiteralRaw();
 	}
 	| apply
 	| object
-	| T_FOR '(' identifier T_FOLLOWS identifier T_IN rterm ')'
+	| T_FOR '(' optional_var identifier T_FOLLOWS optional_var identifier T_IN rterm ')'
 	{
 		BeginFlowControlBlock(context, FlowControlContinue | FlowControlBreak, true);
 	}
@@ -611,11 +631,11 @@ lterm: T_LIBRARY rterm
 	{
 		EndFlowControlBlock(context);
 
-		$$ = new ForExpression(*$3, *$5, std::unique_ptr<Expression>($7), std::unique_ptr<Expression>($10), @$);
-		delete $3;
-		delete $5;
+		$$ = new ForExpression(*$4, *$7, std::unique_ptr<Expression>($9), std::unique_ptr<Expression>($12), @$);
+		delete $4;
+		delete $7;
 	}
-	| T_FOR '(' identifier T_IN rterm ')'
+	| T_FOR '(' optional_var identifier T_IN rterm ')'
 	{
 		BeginFlowControlBlock(context, FlowControlContinue | FlowControlBreak, true);
 	}
@@ -623,8 +643,8 @@ lterm: T_LIBRARY rterm
 	{
 		EndFlowControlBlock(context);
 
-		$$ = new ForExpression(*$3, "", std::unique_ptr<Expression>($5), std::unique_ptr<Expression>($8), @$);
-		delete $3;
+		$$ = new ForExpression(*$4, "", std::unique_ptr<Expression>($6), std::unique_ptr<Expression>($9), @$);
+		delete $4;
 	}
 	| T_FUNCTION identifier '(' identifier_items ')' use_specifier
 	{
@@ -643,7 +663,7 @@ lterm: T_LIBRARY rterm
 	}
 	| T_CONST T_IDENTIFIER T_SET rterm
 	{
-		$$ = new SetExpression(MakeIndexer(ScopeGlobal, *$2), OpSetLiteral, std::unique_ptr<Expression>($4));
+		$$ = new SetConstExpression(*$2, std::unique_ptr<Expression>($4), @$);
 		delete $2;
 	}
 	| T_VAR rterm
@@ -874,8 +894,16 @@ rterm_no_side_effect_no_dict: T_STRING
 	}
 	| T_IDENTIFIER
 	{
-		$$ = new VariableExpression(*$1, @1);
+		$$ = new VariableExpression(*$1, context->GetImports(), @1);
 		delete $1;
+	}
+	| T_MULTIPLY rterm %prec DEREF_OP
+	{
+		$$ = new DerefExpression(std::unique_ptr<Expression>($2), @$);
+	}
+	| T_BINARY_AND rterm %prec REF_OP
+	{
+		$$ = new RefExpression(std::unique_ptr<Expression>($2), @$);
 	}
 	| '!' rterm
 	{
@@ -1092,7 +1120,7 @@ use_specifier_items: use_specifier_item
 
 use_specifier_item: identifier
 	{
-		$$ = new std::pair<String, std::unique_ptr<Expression> >(*$1, std::unique_ptr<Expression>(new VariableExpression(*$1, @1)));
+		$$ = new std::pair<String, std::unique_ptr<Expression> >(*$1, std::unique_ptr<Expression>(new VariableExpression(*$1, context->GetImports(), @1)));
 		delete $1;
 	}
 	| identifier T_SET rterm
@@ -1103,24 +1131,24 @@ use_specifier_item: identifier
 	;
 
 apply_for_specifier: /* empty */
-	| T_FOR '(' identifier T_FOLLOWS identifier T_IN rterm ')'
+	| T_FOR '(' optional_var identifier T_FOLLOWS optional_var identifier T_IN rterm ')'
 	{
-		context->m_FKVar.top() = *$3;
-		delete $3;
+		context->m_FKVar.top() = *$4;
+		delete $4;
 
-		context->m_FVVar.top() = *$5;
-		delete $5;
+		context->m_FVVar.top() = *$7;
+		delete $7;
 
-		context->m_FTerm.top() = $7;
+		context->m_FTerm.top() = $9;
 	}
-	| T_FOR '(' identifier T_IN rterm ')'
+	| T_FOR '(' optional_var identifier T_IN rterm ')'
 	{
-		context->m_FKVar.top() = *$3;
-		delete $3;
+		context->m_FKVar.top() = *$4;
+		delete $4;
 
 		context->m_FVVar.top() = "";
 
-		context->m_FTerm.top() = $5;
+		context->m_FTerm.top() = $6;
 	}
 	;
 
@@ -1158,7 +1186,7 @@ apply:
 		delete $6;
 
 		if (!ApplyRule::IsValidSourceType(type))
-			BOOST_THROW_EXCEPTION(ScriptError("'apply' cannot be used with type '" + type + "'", DebugInfoRange(@2, @3)));
+			BOOST_THROW_EXCEPTION(ScriptError("'apply' cannot be used with type '" + type + "'", @3));
 
 		if (!ApplyRule::IsValidTargetType(type, target)) {
 			if (target == "") {
@@ -1178,7 +1206,7 @@ apply:
 
 				BOOST_THROW_EXCEPTION(ScriptError("'apply' target type is ambiguous (can be one of " + typeNames + "): use 'to' to specify a type", DebugInfoRange(@2, @3)));
 			} else
-				BOOST_THROW_EXCEPTION(ScriptError("'apply' target type '" + target + "' is invalid", DebugInfoRange(@2, @5)));
+				BOOST_THROW_EXCEPTION(ScriptError("'apply' target type '" + target + "' is invalid", @6));
 		}
 
 		bool seen_assign = context->m_SeenAssign.top();

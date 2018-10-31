@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -73,8 +73,11 @@ void Checkable::Start(bool runtimeCreated)
 {
 	double now = Utility::GetTime();
 
-	if (GetNextCheck() < now + 300)
-		UpdateNextCheck();
+	if (GetNextCheck() < now + 60) {
+		double delta = std::min(GetCheckInterval(), 60.0);
+		delta *= (double)std::rand() / RAND_MAX;
+		SetNextCheck(now + delta);
+	}
 
 	ObjectImpl<Checkable>::Start(runtimeCreated);
 }

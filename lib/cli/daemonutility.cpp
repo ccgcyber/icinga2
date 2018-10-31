@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -21,10 +21,10 @@
 #include "base/utility.hpp"
 #include "base/logger.hpp"
 #include "base/application.hpp"
+#include "base/scriptglobal.hpp"
 #include "config/configcompiler.hpp"
 #include "config/configcompilercontext.hpp"
 #include "config/configitembuilder.hpp"
-
 
 using namespace icinga;
 
@@ -121,7 +121,7 @@ bool DaemonUtility::ValidateConfigFiles(const std::vector<std::string>& configs,
 	 * unfortunately moving it there is somewhat non-trivial. */
 	success = true;
 
-	String zonesEtcDir = Application::GetZonesDir();
+	String zonesEtcDir = Configuration::ZonesDir;
 	if (!zonesEtcDir.IsEmpty() && Utility::PathExists(zonesEtcDir))
 		Utility::Glob(zonesEtcDir + "/*", std::bind(&IncludeZoneDirRecursive, _1, "_etc", std::ref(success)), GlobDirectory);
 
@@ -130,7 +130,7 @@ bool DaemonUtility::ValidateConfigFiles(const std::vector<std::string>& configs,
 
 	/* Load package config files - they may contain additional zones which
 	 * are authoritative on this node and are checked in HasZoneConfigAuthority(). */
-	String packagesVarDir = Application::GetLocalStateDir() + "/lib/icinga2/api/packages";
+	String packagesVarDir = Configuration::DataDir + "/api/packages";
 	if (Utility::PathExists(packagesVarDir))
 		Utility::Glob(packagesVarDir + "/*", std::bind(&IncludePackage, _1, std::ref(success)), GlobDirectory);
 
@@ -138,14 +138,21 @@ bool DaemonUtility::ValidateConfigFiles(const std::vector<std::string>& configs,
 		return false;
 
 	/* Load cluster synchronized configuration files */
-	String zonesVarDir = Application::GetLocalStateDir() + "/lib/icinga2/api/zones";
+	String zonesVarDir = Configuration::DataDir + "/api/zones";
 	if (Utility::PathExists(zonesVarDir))
 		Utility::Glob(zonesVarDir + "/*", std::bind(&IncludeNonLocalZone, _1, "_cluster", std::ref(success)), GlobDirectory);
 
 	if (!success)
 		return false;
 
-	Type::Ptr appType = Type::GetByName(ScriptGlobal::Get("ApplicationType", &Empty));
+	Namespace::Ptr systemNS = ScriptGlobal::Get("System");
+	VERIFY(systemNS);
+
+	/* This is initialized inside the IcingaApplication class. */
+	Value vAppType;
+	VERIFY(systemNS->Get("ApplicationType", &vAppType));
+
+	Type::Ptr appType = Type::GetByName(vAppType);
 
 	if (ConfigItem::GetItems(appType).empty()) {
 		ConfigItemBuilder builder;
@@ -170,7 +177,7 @@ bool DaemonUtility::LoadConfigFiles(const std::vector<std::string>& configs,
 		return false;
 	}
 
-	WorkQueue upq(25000, Application::GetConcurrency());
+	WorkQueue upq(25000, Configuration::Concurrency);
 	upq.SetName("DaemonUtility::LoadConfigFiles");
 	bool result = ConfigItem::CommitItems(ascope.GetContext(), upq, newItems);
 

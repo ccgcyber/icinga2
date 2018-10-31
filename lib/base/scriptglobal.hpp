@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -21,7 +21,7 @@
 #define SCRIPTGLOBAL_H
 
 #include "base/i2-base.hpp"
-#include "base/dictionary.hpp"
+#include "base/namespace.hpp"
 
 namespace icinga
 {
@@ -35,15 +35,16 @@ class ScriptGlobal
 {
 public:
 	static Value Get(const String& name, const Value *defaultValue = nullptr);
-	static void Set(const String& name, const Value& value);
+	static void Set(const String& name, const Value& value, bool overrideFrozen = false);
+	static void SetConst(const String& name, const Value& value);
 	static bool Exists(const String& name);
 
 	static void WriteToFile(const String& filename);
 
-	static Dictionary::Ptr GetGlobals();
+	static Namespace::Ptr GetGlobals();
 
 private:
-	static Dictionary::Ptr m_Globals;
+	static Namespace::Ptr m_Globals;
 };
 
 }

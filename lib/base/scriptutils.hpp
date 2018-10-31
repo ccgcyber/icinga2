@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -49,7 +49,7 @@ public:
 	static void Log(const std::vector<Value>& arguments);
 	static Array::Ptr Range(const std::vector<Value>& arguments);
 	static Type::Ptr TypeOf(const Value& value);
-	static Array::Ptr Keys(const Dictionary::Ptr& dict);
+	static Array::Ptr Keys(const Object::Ptr& obj);
 	static ConfigObject::Ptr GetObject(const Value& type, const String& name);
 	static Array::Ptr GetObjects(const Type::Ptr& type);
 	static void Assert(const Value& arg);

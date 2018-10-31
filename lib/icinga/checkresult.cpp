@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -26,13 +26,13 @@ using namespace icinga;
 REGISTER_TYPE(CheckResult);
 
 INITIALIZE_ONCE([]() {
-	ScriptGlobal::Set("ServiceOK", ServiceOK);
-	ScriptGlobal::Set("ServiceWarning", ServiceWarning);
-	ScriptGlobal::Set("ServiceCritical", ServiceCritical);
-	ScriptGlobal::Set("ServiceUnknown", ServiceUnknown);
+	ScriptGlobal::Set("Icinga.ServiceOK", ServiceOK, true);
+	ScriptGlobal::Set("Icinga.ServiceWarning", ServiceWarning, true);
+	ScriptGlobal::Set("Icinga.ServiceCritical", ServiceCritical, true);
+	ScriptGlobal::Set("Icinga.ServiceUnknown", ServiceUnknown, true);
 
-	ScriptGlobal::Set("HostUp", HostUp);
-	ScriptGlobal::Set("HostDown", HostDown);
+	ScriptGlobal::Set("Icinga.HostUp", HostUp, true);
+	ScriptGlobal::Set("Icinga.HostDown", HostDown, true);
 })
 
 double CheckResult::CalculateExecutionTime() const

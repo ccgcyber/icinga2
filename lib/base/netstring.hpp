@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -38,7 +38,8 @@ class String;
 class NetString
 {
 public:
-	static StreamReadStatus ReadStringFromStream(const Stream::Ptr& stream, String *message, StreamReadContext& context, bool may_wait = false);
+	static StreamReadStatus ReadStringFromStream(const Stream::Ptr& stream, String *message, StreamReadContext& context,
+		bool may_wait = false, ssize_t maxMessageLength = -1);
 	static size_t WriteStringToStream(const Stream::Ptr& stream, const String& message);
 	static void WriteStringToStream(std::ostream& stream, const String& message);
 

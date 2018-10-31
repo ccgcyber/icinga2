@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -49,11 +49,11 @@ bool Logger::m_TimestampEnabled = true;
 LogSeverity Logger::m_ConsoleLogSeverity = LogInformation;
 
 INITIALIZE_ONCE([]() {
-	ScriptGlobal::Set("LogDebug", LogDebug);
-	ScriptGlobal::Set("LogNotice", LogNotice);
-	ScriptGlobal::Set("LogInformation", LogInformation);
-	ScriptGlobal::Set("LogWarning", LogWarning);
-	ScriptGlobal::Set("LogCritical", LogCritical);
+	ScriptGlobal::Set("System.LogDebug", LogDebug, true);
+	ScriptGlobal::Set("System.LogNotice", LogNotice, true);
+	ScriptGlobal::Set("System.LogInformation", LogInformation, true);
+	ScriptGlobal::Set("System.LogWarning", LogWarning, true);
+	ScriptGlobal::Set("System.LogCritical", LogCritical, true);
 });
 
 /**
@@ -173,9 +173,14 @@ LogSeverity Logger::GetConsoleLogSeverity()
 	return m_ConsoleLogSeverity;
 }
 
-void Logger::DisableTimestamp(bool disable)
+void Logger::DisableTimestamp()
 {
-	m_TimestampEnabled = !disable;
+	m_TimestampEnabled = false;
+}
+
+void Logger::EnableTimestamp()
+{
+	m_TimestampEnabled = true;
 }
 
 bool Logger::IsTimestampEnabled()
@@ -233,10 +238,20 @@ Log::~Log()
 
 		if (entry.Severity >= logger->GetMinSeverity())
 			logger->ProcessLogEntry(entry);
+
+#ifdef I2_DEBUG /* I2_DEBUG */
+		/* Always flush, don't depend on the timer. Enable this for development sprints. */
+		//logger->Flush();
+#endif /* I2_DEBUG */
 	}
 
-	if (Logger::IsConsoleLogEnabled() && entry.Severity >= Logger::GetConsoleLogSeverity())
+	if (Logger::IsConsoleLogEnabled() && entry.Severity >= Logger::GetConsoleLogSeverity()) {
 		StreamLogger::ProcessLogEntry(std::cout, entry);
+
+		/* "Console" might be a pipe/socket (systemd, daemontools, docker, ...),
+		 * then cout will not flush lines automatically. */
+		std::cout << std::flush;
+	}
 }
 
 Log& Log::operator<<(const char *val)

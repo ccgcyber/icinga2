@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -49,6 +49,7 @@ public:
 	static void EvaluateApplyRules(const intrusive_ptr<Service>& service);
 
 	void ValidateRanges(const Lazy<Dictionary::Ptr>& lvalue, const ValidationUtils& utils) override;
+	void ValidateChildOptions(const Lazy<Value>& lvalue, const ValidationUtils& utils) override;
 
 protected:
 	void OnAllConfigLoaded() override;
@@ -57,6 +58,7 @@ protected:
 private:
 	static void TimerProc();
 
+	std::pair<double, double> FindRunningSegment(double minEnd = 0);
 	std::pair<double, double> FindNextSegment();
 	void CreateNextDowntime();
 

@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -42,6 +42,7 @@ boost::signals2::signal<void (const Checkable::Ptr&)> Checkable::OnNextCheckUpda
 
 boost::mutex Checkable::m_StatsMutex;
 int Checkable::m_PendingChecks = 0;
+boost::condition_variable Checkable::m_PendingChecksCV;
 
 CheckCommand::Ptr Checkable::GetCheckCommand() const
 {
@@ -80,7 +81,14 @@ void Checkable::UpdateNextCheck(const MessageOrigin::Ptr& origin)
 
 	adj = std::min(0.5 + fmod(GetSchedulingOffset(), interval * 5) / 100.0, adj);
 
-	SetNextCheck(now - adj + interval, false, origin);
+	double nextCheck = now - adj + interval;
+
+	Log(LogDebug, "Checkable")
+		<< "Update checkable '" << GetName() << "' with check interval '" << GetCheckInterval()
+		<< "' from last check time at " << Utility::FormatDateTime("%Y-%m-%d %H:%M:%S %z", GetLastCheck())
+		<< " (" << GetLastCheck() << ") to next check time at " << Utility::FormatDateTime("%Y-%m-%d %H:%M:%S %z", nextCheck) << "(" << nextCheck << ").";
+
+	SetNextCheck(nextCheck, false, origin);
 }
 
 bool Checkable::HasBeenChecked() const
@@ -145,6 +153,9 @@ void Checkable::ProcessCheckResult(const CheckResult::Ptr& cr, const MessageOrig
 		return;
 
 	}
+
+	if (!IsActive())
+		return;
 
 	bool reachable = IsReachable();
 	bool notification_reachable = IsReachable(DependencyNotification);
@@ -249,8 +260,13 @@ void Checkable::ProcessCheckResult(const CheckResult::Ptr& cr, const MessageOrig
 			if (parent.get() == this)
 				continue;
 
-			ObjectLock olock(parent);
-			parent->SetNextCheck(Utility::GetTime());
+			if (!parent->GetEnableActiveChecks())
+				continue;
+
+			if (parent->GetNextCheck() >= now + parent->GetRetryInterval()) {
+				ObjectLock olock(parent);
+				parent->SetNextCheck(now);
+			}
 		}
 	}
 
@@ -282,7 +298,7 @@ void Checkable::ProcessCheckResult(const CheckResult::Ptr& cr, const MessageOrig
 	bool send_notification = false;
 
 	if (notification_reachable && !in_downtime && !IsAcknowledged()) {
-		/* Send notifications whether when a hard state change occured. */
+		/* Send notifications whether when a hard state change occurred. */
 		if (hardChange && !(old_stateType == StateTypeSoft && IsStateOK(new_state)))
 			send_notification = true;
 		/* Or if the checkable is volatile and in a HARD state. */
@@ -427,6 +443,10 @@ void Checkable::ExecuteCheck()
 	double scheduled_start = GetNextCheck();
 	double before_check = Utility::GetTime();
 
+	/* This calls SetNextCheck() which updates the CheckerComponent's idle/pending
+	 * queues and ensures that checks are not fired multiple times. ProcessCheckResult()
+	 * is called too late. See #6421.
+	 */
 	UpdateNextCheck();
 
 	bool reachable = IsReachable();
@@ -544,10 +564,20 @@ void Checkable::DecreasePendingChecks()
 {
 	boost::mutex::scoped_lock lock(m_StatsMutex);
 	m_PendingChecks--;
+	m_PendingChecksCV.notify_one();
 }
 
 int Checkable::GetPendingChecks()
 {
 	boost::mutex::scoped_lock lock(m_StatsMutex);
 	return m_PendingChecks;
+}
+
+void Checkable::AquirePendingCheckSlot(int maxPendingChecks)
+{
+	boost::mutex::scoped_lock lock(m_StatsMutex);
+	while (m_PendingChecks >= maxPendingChecks)
+		m_PendingChecksCV.wait(lock);
+
+	m_PendingChecks++;
 }

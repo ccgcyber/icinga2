@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -40,7 +40,8 @@ public:
 
 	Zone::Ptr GetParent() const;
 	std::set<Endpoint::Ptr> GetEndpoints() const;
-	std::vector<Zone::Ptr> GetAllParents() const;
+	std::vector<Zone::Ptr> GetAllParentsRaw() const;
+	Array::Ptr GetAllParents() const override;
 
 	bool CanAccessObject(const ConfigObject::Ptr& object);
 	bool IsChildOf(const Zone::Ptr& zone);

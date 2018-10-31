@@ -23,6 +23,10 @@ RHEL/CentOS:
 
     # yum install icinga2-debuginfo
 
+Fedora:
+
+    # dnf install icinga2-debuginfo icinga2-bin-debuginfo icinga2-ido-mysql-debuginfo
+
 SLES/openSUSE:
 
     # zypper install icinga2-bin-debuginfo icinga2-ido-mysql-debuginfo
@@ -163,7 +167,7 @@ running Icinga 2.
     (gdb) handle SIGPIPE nostop noprint pass
     (gdb) r
 
-If you create a [bug report](https://www.icinga.com/community/get-involved/),
+If you create a [new issue](https://github.com/Icinga/icinga2/issues),
 make sure to attach as much detail as possible.
 
 ### GDB Backtrace from Running Process <a id="development-debug-gdb-backtrace-running"></a>
@@ -171,7 +175,20 @@ make sure to attach as much detail as possible.
 If Icinga 2 is still running, generate a full backtrace from the running
 process and store it into a new file (e.g. for debugging dead locks):
 
-    # gdb -p $(pidof icinga2) -batch -ex "thread apply all bt full" -ex "detach" -ex "q" > gdb_bt.log
+Icinga 2 runs with 2 processes, therefore generate two backtrace logs
+and add them to the GitHub issue.
+
+```
+for pid in $(pidof icinga2); do gdb -p $pid -batch -ex "thread apply all bt full" -ex "detach" -ex "q" > gdb_bt_${pid}_`date +%s`.log; done
+```
+
+### GDB Thread List from Running Process <a id="development-debug-gdb-thread-list-running"></a>
+
+Instead of a full backtrace, you sometimes just need a list of running threads.
+
+```
+for pid in $(pidof icinga2); do gdb -p $pid -batch -ex "info threads" -ex "detach" -ex "q" > gdb_threads_${pid}_`date +%s`.log; done
+```
 
 ### GDB Backtrace Stepping <a id="development-debug-gdb-backtrace-stepping"></a>
 

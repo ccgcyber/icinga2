@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -186,7 +186,7 @@ bool CLICommand::ParseCommand(int argc, char **argv, po::options_description& vi
 		std::vector<String>::size_type i;
 		int k;
 		for (i = 0, k = 1; i < vname.size() && k < argc; i++, k++) {
-			if (strncmp(argv[k], "--", 2) == 0) {
+			if (strncmp(argv[k], "-", 1) == 0 || strncmp(argv[k], "--", 2) == 0) {
 				i--;
 				continue;
 			}

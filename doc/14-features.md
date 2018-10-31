@@ -333,6 +333,9 @@ predominantly affects Windows paths e.g. `C:\` becomes `C:_`.
 
 The database is assumed to exist so this object will make no attempt to create it currently.
 
+If [SELinux](22-selinux.md#selinux) is enabled, it will not allow access for Icinga 2 to InfluxDB until the [boolean](22-selinux.md#selinux-policy-booleans)
+`icinga2_can_connect_all` is set to true as InfluxDB is not providing its own policy.
+
 More configuration details can be found [here](09-object-types.md#objecttype-influxdbwriter).
 
 #### Instance Tagging <a id="influxdb-writer-instance-tags"></a>
@@ -400,7 +403,10 @@ The check results include parsed performance data metrics if enabled.
 
 > **Note**
 >
-> Elasticsearch 5.x is required. This feature has been successfully tested with Elasticsearch 5.6.4.
+> Elasticsearch 5.x or 6.x are required. This feature has been successfully tested with
+> Elasticsearch 5.6.7 and 6.3.1.
+
+
 
 Enable the feature and restart Icinga 2.
 
@@ -430,12 +436,12 @@ Metric values are stored like this:
 
 The following characters are escaped in perfdata labels:
 
-  Character	| Escaped character
-  --------------|--------------------------
-  whitespace	| _
-  \		| _
-  /		| _
-  ::		| .
+  Character   | Escaped character
+  ------------|--------------------------
+  whitespace  | _
+  \           | _
+  /           | _
+  ::          | .
 
 Note that perfdata labels may contain dots (`.`) allowing to
 add more subsequent levels inside the tree.
@@ -638,7 +644,7 @@ A list of available external commands and their parameters can be found [here](2
 and, or, negate
 
   Operator  | Negate   | Description
-  ----------|------------------------
+  ----------|----------|-------------
    =        | !=       | Equality
    ~        | !~       | Regex match
    =~       | !=~      | Equality ignoring case
@@ -734,6 +740,10 @@ A detailed list on the available table attributes can be found in the [Livestatu
 
 ## Status Data Files <a id="status-data"></a>
 
+> **Note**
+>
+> This feature is DEPRECATED and will be removed in Icinga 2 v2.11.
+
 Icinga 1.x writes object configuration data and status data in a cyclic
 interval to its `objects.cache` and `status.dat` files. Icinga 2 provides
 the `StatusDataWriter` object which dumps all configuration objects and
@@ -744,8 +754,11 @@ status updates in a regular interval.
 If you are not using any web interface or addon which uses these files,
 you can safely disable this feature.
 
-
 ## Compat Log Files <a id="compat-logging"></a>
+
+> **Note**
+>
+> This feature is DEPRECATED and will be removed in Icinga 2 v2.11.
 
 The Icinga 1.x log format is considered being the `Compat Log`
 in Icinga 2 provided with the `CompatLogger` object.
@@ -765,6 +778,10 @@ in `/var/log/icinga2/compat`. Rotated log files are moved into
 `var/log/icinga2/compat/archives`.
 
 ## Check Result Files <a id="check-result-files"></a>
+
+> **Note**
+>
+> This feature is DEPRECATED and will be removed in Icinga 2 v2.11.
 
 Icinga 1.x writes its check result files to a temporary spool directory
 where they are processed in a regular interval.

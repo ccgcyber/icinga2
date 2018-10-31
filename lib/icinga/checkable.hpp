@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -197,6 +197,7 @@ public:
 	static void IncreasePendingChecks();
 	static void DecreasePendingChecks();
 	static int GetPendingChecks();
+	static void AquirePendingCheckSlot(int maxPendingChecks);
 
 	static Object::Ptr GetPrototype();
 
@@ -211,6 +212,7 @@ private:
 
 	static boost::mutex m_StatsMutex;
 	static int m_PendingChecks;
+	static boost::condition_variable m_PendingChecksCV;
 
 	/* Downtimes */
 	std::set<Downtime::Ptr> m_Downtimes;

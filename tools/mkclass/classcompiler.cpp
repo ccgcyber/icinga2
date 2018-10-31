@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -408,6 +408,14 @@ void ClassCompiler::HandleClass(const Klass& klass, const ClassDebugInfo&)
 	m_Impl << "\t" << "return deps;" << std::endl
 		<< "}" << std::endl << std::endl;
 
+	/* GetActivationPriority */
+	m_Header << "\t" << "int GetActivationPriority() const override;" << std::endl;
+
+	m_Impl << "int TypeImpl<" << klass.Name << ">::GetActivationPriority() const" << std::endl
+		<< "{" << std::endl
+		<< "\t" << "return " << klass.ActivationPriority << ";" << std::endl
+		<< "}" << std::endl << std::endl;
+
 	/* RegisterAttributeHandler */
 	m_Header << "public:" << std::endl
 			<< "\t" << "void RegisterAttributeHandler(int fieldId, const Type::AttributeHandler& callback) override;" << std::endl;
@@ -560,7 +568,8 @@ void ClassCompiler::HandleClass(const Klass& klass, const ClassDebugInfo&)
 		<< "{" << std::endl;
 
 	for (const Field& field : klass.Fields) {
-		m_Impl << "\t" << "Set" << field.GetFriendlyName() << "(" << "GetDefault" << field.GetFriendlyName() << "(), true);" << std::endl;
+		if (!field.PureSetAccessor)
+			m_Impl << "\t" << "Set" << field.GetFriendlyName() << "(" << "GetDefault" << field.GetFriendlyName() << "(), true);" << std::endl;
 	}
 
 	m_Impl << "}" << std::endl << std::endl;

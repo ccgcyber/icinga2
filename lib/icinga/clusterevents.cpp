@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -114,9 +114,6 @@ Value ClusterEvents::CheckResultAPIHandler(const MessageOrigin::Ptr& origin, con
 		return Empty;
 	}
 
-	if (!params)
-		return Empty;
-
 	CheckResult::Ptr cr;
 	Array::Ptr vperf;
 
@@ -220,9 +217,6 @@ Value ClusterEvents::NextCheckChangedAPIHandler(const MessageOrigin::Ptr& origin
 		return Empty;
 	}
 
-	if (!params)
-		return Empty;
-
 	Host::Ptr host = Host::GetByName(params->Get("host"));
 
 	if (!host)
@@ -284,9 +278,6 @@ Value ClusterEvents::NextNotificationChangedAPIHandler(const MessageOrigin::Ptr&
 		return Empty;
 	}
 
-	if (!params)
-		return Empty;
-
 	Notification::Ptr notification = Notification::GetByName(params->Get("notification"));
 
 	if (!notification)
@@ -343,9 +334,6 @@ Value ClusterEvents::ForceNextCheckChangedAPIHandler(const MessageOrigin::Ptr& o
 			<< "Discarding 'force next check changed' message from '" << origin->FromClient->GetIdentity() << "': Invalid endpoint origin (client not allowed).";
 		return Empty;
 	}
-
-	if (!params)
-		return Empty;
 
 	Host::Ptr host = Host::GetByName(params->Get("host"));
 
@@ -408,9 +396,6 @@ Value ClusterEvents::ForceNextNotificationChangedAPIHandler(const MessageOrigin:
 			<< "Discarding 'force next notification changed' message from '" << origin->FromClient->GetIdentity() << "': Invalid endpoint origin (client not allowed).";
 		return Empty;
 	}
-
-	if (!params)
-		return Empty;
 
 	Host::Ptr host = Host::GetByName(params->Get("host"));
 
@@ -480,9 +465,6 @@ Value ClusterEvents::AcknowledgementSetAPIHandler(const MessageOrigin::Ptr& orig
 		return Empty;
 	}
 
-	if (!params)
-		return Empty;
-
 	Host::Ptr host = Host::GetByName(params->Get("host"));
 
 	if (!host)
@@ -546,9 +528,6 @@ Value ClusterEvents::AcknowledgementClearedAPIHandler(const MessageOrigin::Ptr& 
 		return Empty;
 	}
 
-	if (!params)
-		return Empty;
-
 	Host::Ptr host = Host::GetByName(params->Get("host"));
 
 	if (!host)
@@ -578,112 +557,7 @@ Value ClusterEvents::AcknowledgementClearedAPIHandler(const MessageOrigin::Ptr& 
 
 Value ClusterEvents::ExecuteCommandAPIHandler(const MessageOrigin::Ptr& origin, const Dictionary::Ptr& params)
 {
-	Endpoint::Ptr sourceEndpoint = origin->FromClient->GetEndpoint();
-
-	if (!sourceEndpoint || (origin->FromZone && !Zone::GetLocalZone()->IsChildOf(origin->FromZone))) {
-		Log(LogNotice, "ClusterEvents")
-			<< "Discarding 'execute command' message from '" << origin->FromClient->GetIdentity() << "': Invalid endpoint origin (client not allowed).";
-		return Empty;
-	}
-
-	ApiListener::Ptr listener = ApiListener::GetInstance();
-
-	if (!listener) {
-		Log(LogCritical, "ApiListener", "No instance available.");
-		return Empty;
-	}
-
-	if (!listener->GetAcceptCommands()) {
-		Log(LogWarning, "ApiListener")
-			<< "Ignoring command. '" << listener->GetName() << "' does not accept commands.";
-
-		Host::Ptr host = new Host();
-		Dictionary::Ptr attrs = new Dictionary();
-
-		attrs->Set("__name", params->Get("host"));
-		attrs->Set("type", "Host");
-		attrs->Set("enable_active_checks", false);
-
-		Deserialize(host, attrs, false, FAConfig);
-
-		if (params->Contains("service"))
-			host->SetExtension("agent_service_name", params->Get("service"));
-
-		CheckResult::Ptr cr = new CheckResult();
-		cr->SetState(ServiceUnknown);
-		cr->SetOutput("Endpoint '" + Endpoint::GetLocalEndpoint()->GetName() + "' does not accept commands.");
-		Dictionary::Ptr message = MakeCheckResultMessage(host, cr);
-		listener->SyncSendMessage(sourceEndpoint, message);
-
-		return Empty;
-	}
-
-	/* use a virtual host object for executing the command */
-	Host::Ptr host = new Host();
-	Dictionary::Ptr attrs = new Dictionary();
-
-	attrs->Set("__name", params->Get("host"));
-	attrs->Set("type", "Host");
-
-	Deserialize(host, attrs, false, FAConfig);
-
-	if (params->Contains("service"))
-		host->SetExtension("agent_service_name", params->Get("service"));
-
-	String command = params->Get("command");
-	String command_type = params->Get("command_type");
-
-	if (command_type == "check_command") {
-		if (!CheckCommand::GetByName(command)) {
-			CheckResult::Ptr cr = new CheckResult();
-			cr->SetState(ServiceUnknown);
-			cr->SetOutput("Check command '" + command + "' does not exist.");
-			Dictionary::Ptr message = MakeCheckResultMessage(host, cr);
-			listener->SyncSendMessage(sourceEndpoint, message);
-			return Empty;
-		}
-	} else if (command_type == "event_command") {
-		if (!EventCommand::GetByName(command)) {
-			Log(LogWarning, "ClusterEvents")
-				<< "Event command '" << command << "' does not exist.";
-			return Empty;
-		}
-	} else
-		return Empty;
-
-	attrs->Set(command_type, params->Get("command"));
-	attrs->Set("command_endpoint", sourceEndpoint->GetName());
-
-	Deserialize(host, attrs, false, FAConfig);
-
-	host->SetExtension("agent_check", true);
-
-	Dictionary::Ptr macros = params->Get("macros");
-
-	if (command_type == "check_command") {
-		try {
-			host->ExecuteRemoteCheck(macros);
-		} catch (const std::exception& ex) {
-			CheckResult::Ptr cr = new CheckResult();
-			cr->SetState(ServiceUnknown);
-
-			String output = "Exception occured while checking '" + host->GetName() + "': " + DiagnosticInformation(ex);
-			cr->SetOutput(output);
-
-			double now = Utility::GetTime();
-			cr->SetScheduleStart(now);
-			cr->SetScheduleEnd(now);
-			cr->SetExecutionStart(now);
-			cr->SetExecutionEnd(now);
-
-			Dictionary::Ptr message = MakeCheckResultMessage(host, cr);
-			listener->SyncSendMessage(sourceEndpoint, message);
-
-			Log(LogCritical, "checker", output);
-		}
-	} else if (command_type == "event_command") {
-		host->ExecuteEventHandler(macros, true);
-	}
+	EnqueueCheck(origin, params);
 
 	return Empty;
 }
@@ -716,9 +590,6 @@ Value ClusterEvents::SendNotificationsAPIHandler(const MessageOrigin::Ptr& origi
 			<< "Discarding 'send notification' message from '" << origin->FromClient->GetIdentity() << "': Invalid endpoint origin (client not allowed).";
 		return Empty;
 	}
-
-	if (!params)
-		return Empty;
 
 	Host::Ptr host = Host::GetByName(params->Get("host"));
 
@@ -810,9 +681,6 @@ Value ClusterEvents::NotificationSentUserAPIHandler(const MessageOrigin::Ptr& or
 			<< "Discarding 'sent notification to user' message from '" << origin->FromClient->GetIdentity() << "': Invalid endpoint origin (client not allowed).";
 		return Empty;
 	}
-
-	if (!params)
-		return Empty;
 
 	Host::Ptr host = Host::GetByName(params->Get("host"));
 
@@ -926,9 +794,6 @@ Value ClusterEvents::NotificationSentToAllUsersAPIHandler(const MessageOrigin::P
 			<< "Discarding 'sent notification to all users' message from '" << origin->FromClient->GetIdentity() << "': Invalid endpoint origin (client not allowed).";
 		return Empty;
 	}
-
-	if (!params)
-		return Empty;
 
 	Host::Ptr host = Host::GetByName(params->Get("host"));
 

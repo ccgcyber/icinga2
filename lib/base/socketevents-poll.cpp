@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -57,11 +57,17 @@ void SocketEventEnginePoll::ThreadProc(int tid)
 					if (desc.second.Events == 0)
 						continue;
 
-					if (desc.second.EventInterface)
+					int events = desc.second.Events;
+
+					if (desc.second.EventInterface) {
 						desc.second.EventInterface->m_EnginePrivate = &pfds[i];
 
+						if (!desc.second.EventInterface->m_Events)
+							events = 0;
+					}
+
 					pfds[i].fd = desc.first;
-					pfds[i].events = desc.second.Events;
+					pfds[i].events = events;
 					descriptors[i] = desc.second;
 
 					i++;

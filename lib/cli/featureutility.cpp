@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -31,12 +31,12 @@ using namespace icinga;
 
 String FeatureUtility::GetFeaturesAvailablePath()
 {
-	return Application::GetSysconfDir() + "/icinga2/features-available";
+	return Configuration::ConfigDir + "/features-available";
 }
 
 String FeatureUtility::GetFeaturesEnabledPath()
 {
-	return Application::GetSysconfDir() + "/icinga2/features-enabled";
+	return Configuration::ConfigDir + "/features-enabled";
 }
 
 std::vector<String> FeatureUtility::GetFieldCompletionSuggestions(const String& word, bool enable)

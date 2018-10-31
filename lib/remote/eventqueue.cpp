@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -41,7 +41,7 @@ void EventQueue::ProcessEvent(const Dictionary::Ptr& event)
 	frame.Sandboxed = true;
 
 	try {
-		if (!FilterUtility::EvaluateFilter(frame, &*m_Filter, event, "event"))
+		if (!FilterUtility::EvaluateFilter(frame, m_Filter.get(), event, "event"))
 			return;
 	} catch (const std::exception& ex) {
 		Log(LogWarning, "EventQueue")
@@ -108,7 +108,7 @@ Dictionary::Ptr EventQueue::WaitForEvent(void *client, double timeout)
 			return result;
 		}
 
-		if (!m_CV.timed_wait(lock, boost::posix_time::milliseconds(timeout * 1000)))
+		if (!m_CV.timed_wait(lock, boost::posix_time::milliseconds(long(timeout * 1000))))
 			return nullptr;
 	}
 }

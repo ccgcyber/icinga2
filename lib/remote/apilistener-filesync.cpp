@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -202,7 +202,7 @@ void ApiListener::SyncZoneDir(const Zone::Ptr& zone) const
 	if (sumUpdates == 0)
 		return;
 
-	String oldDir = Application::GetLocalStateDir() + "/lib/icinga2/api/zones/" + zone->GetName();
+	String oldDir = Configuration::DataDir + "/api/zones/" + zone->GetName();
 
 	Log(LogInformation, "ApiListener")
 		<< "Copying " << sumUpdates << " zone configuration files for zone '" << zone->GetName() << "' to '" << oldDir << "'.";
@@ -240,7 +240,7 @@ void ApiListener::SendConfigUpdate(const JsonRpcConnection::Ptr& aclient)
 	Dictionary::Ptr configUpdateV1 = new Dictionary();
 	Dictionary::Ptr configUpdateV2 = new Dictionary();
 
-	String zonesDir = Application::GetLocalStateDir() + "/lib/icinga2/api/zones";
+	String zonesDir = Configuration::DataDir + "/api/zones";
 
 	for (const Zone::Ptr& zone : ConfigType::GetObjectsByType<Zone>()) {
 		String zoneDir = zonesDir + "/" + zone->GetName();
@@ -315,7 +315,7 @@ Value ApiListener::ConfigUpdateHandler(const MessageOrigin::Ptr& origin, const D
 			continue;
 		}
 
-		String oldDir = Application::GetLocalStateDir() + "/lib/icinga2/api/zones/" + zone->GetName();
+		String oldDir = Configuration::DataDir + "/api/zones/" + zone->GetName();
 
 		Utility::MkDirP(oldDir, 0700);
 

@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -21,10 +21,11 @@
 #define HTTPSERVERCONNECTION_H
 
 #include "remote/httprequest.hpp"
+#include "remote/httpresponse.hpp"
 #include "remote/apiuser.hpp"
 #include "base/tlsstream.hpp"
-#include "base/timer.hpp"
 #include "base/workqueue.hpp"
+#include <boost/thread/recursive_mutex.hpp>
 
 namespace icinga
 {
@@ -51,12 +52,14 @@ public:
 
 private:
 	ApiUser::Ptr m_ApiUser;
+	ApiUser::Ptr m_AuthenticatedUser;
 	TlsStream::Ptr m_Stream;
 	double m_Seen;
 	HttpRequest m_CurrentRequest;
-	boost::mutex m_DataHandlerMutex;
+	boost::recursive_mutex m_DataHandlerMutex;
 	WorkQueue m_RequestQueue;
 	int m_PendingRequests;
+	String m_PeerAddress;
 
 	StreamReadContext m_Context;
 
@@ -67,7 +70,9 @@ private:
 	static void TimeoutTimerHandler();
 	void CheckLiveness();
 
-	void ProcessMessageAsync(HttpRequest& request);
+	bool ManageHeaders(HttpResponse& response);
+
+	void ProcessMessageAsync(HttpRequest& request, HttpResponse& response, const ApiUser::Ptr&);
 };
 
 }

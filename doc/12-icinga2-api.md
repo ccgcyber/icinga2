@@ -64,6 +64,8 @@ All requests apart from `GET` require that the following `Accept` header is set:
 
 Each URL is prefixed with the API version (currently "/v1").
 
+HTTP header size is limited to 8KB.
+
 ### Responses <a id="icinga2-api-responses"></a>
 
 Successful requests will send back a response body containing a `results`
@@ -84,7 +86,7 @@ The output will be sent back as a JSON object:
 
 > **Tip**
 >
-> You can use the `pretty` parameter to beautify the JSON response with Icinga v2.9+.
+> You can use the [pretty](12-icinga2-api.md#icinga2-api-parameters-global) parameter to beautify the JSON response with Icinga v2.9+.
 
 You can also use [jq](https://stedolan.github.io/jq/) or `python -m json.tool`
 in combination with curl on the CLI.
@@ -105,7 +107,8 @@ The API will return standard [HTTP statuses](https://www.ietf.org/rfc/rfc2616.tx
 including error codes.
 
 When an error occurs, the response body will contain additional information
-about the problem and its source.
+about the problem and its source. Set `verbose` to true to retrieve more
+insights into what may be causing the error.
 
 A status code between 200 and 299 generally means that the request was
 successful.
@@ -176,13 +179,15 @@ actions on the URL endpoints.
 
 Permissions for API users must be specified in the `permissions` attribute
 as array. The array items can be a list of permission strings with wildcard
-matches.
+matches. Please notice, that the permission system that is used by the API differs from the permission system used by the Icinga Web 2 frontend or other parts of Icinga 2.
+
+The permission system mainly relies on the url scheme of the API endpoints (See listing below).
 
 Example for an API user with all permissions:
 
     permissions = [ "*" ]
 
-Note that you can use wildcards. Here's another example that only allows the user
+Note that you can use wildcards to include all possible hierarchically lower items. Here's another example that only allows the user
 to perform read-only object queries for hosts and services:
 
     permissions = [ "objects/query/Host", "objects/query/Service" ]
@@ -208,30 +213,32 @@ The [regex function](18-library-reference.md#global-functions-regex) is availabl
 
 More information about filters can be found in the [filters](12-icinga2-api.md#icinga2-api-filters) chapter.
 
+Permissions are tied to a maximum HTTP request size to prevent abuse, responses sent by Icinga are not limited.
+An API user with all permissions ("\*") may send up to 512 MB regardless of the endpoint.
+
 Available permissions for specific URL endpoints:
 
-  Permissions                   | URL Endpoint  | Supports Filters
-  ------------------------------|---------------|-----------------
-  actions/&lt;action&gt;        | /v1/actions   | Yes
-  config/query                  | /v1/config    | No
-  config/modify                 | /v1/config    | No
-  console                       | /v1/console   | No
-  events/&lt;type&gt;           | /v1/events    | No
-  objects/query/&lt;type&gt;    | /v1/objects   | Yes
-  objects/create/&lt;type&gt;   | /v1/objects   | No
-  objects/modify/&lt;type&gt;   | /v1/objects   | Yes
-  objects/delete/&lt;type&gt;   | /v1/objects   | Yes
-  status/query                  | /v1/status    | Yes
-  templates/&lt;type&gt;        | /v1/templates | Yes
-  types                         | /v1/types     | Yes
-  variables                     | /v1/variables | Yes
+  Permissions                   | URL Endpoint  | Supports filters  | Max body size in MB
+  ------------------------------|---------------|-------------------|---------------------
+  actions/&lt;action&gt;        | /v1/actions   | Yes               | 1
+  config/query                  | /v1/config    | No                | 1
+  config/modify                 | /v1/config    | No                | 512
+  console                       | /v1/console   | No                | 1
+  events/&lt;type&gt;           | /v1/events    | No                | 1
+  objects/query/&lt;type&gt;    | /v1/objects   | Yes               | 1
+  objects/create/&lt;type&gt;   | /v1/objects   | No                | 1
+  objects/modify/&lt;type&gt;   | /v1/objects   | Yes               | 1
+  objects/delete/&lt;type&gt;   | /v1/objects   | Yes               | 1
+  status/query                  | /v1/status    | Yes               | 1
+  templates/&lt;type&gt;        | /v1/templates | Yes               | 1
+  types                         | /v1/types     | Yes               | 1
+  variables                     | /v1/variables | Yes               | 1
 
 The required actions or types can be replaced by using a wildcard match ("\*").
 
 ### Parameters <a id="icinga2-api-parameters"></a>
 
-Depending on the request method there are two ways of
-passing parameters to the request:
+Depending on the request method there are two ways of passing parameters to the request:
 
 * JSON object as request body (all request methods other than `GET`)
 * Query string as URL parameter (all request methods)
@@ -249,6 +256,27 @@ Here are the exact same query parameters as a JSON object:
 
 The [match function](18-library-reference.md#global-functions-match) is available as global function
 in Icinga 2.
+
+### Global Parameters <a id="icinga2-api-parameters-global"></a>
+
+Name            | Description
+----------------|--------------------
+pretty          | Pretty-print the JSON response.
+verbose         | Add verbose debug information inside the `diagnostic_information` key into the response if available. This helps with troubleshooting failing requests.
+
+Example as URL parameter:
+
+```
+/v1/objects/hosts?pretty=1
+```
+
+Example as JSON object:
+
+```
+{ "pretty": true }
+```
+
+Both parameters have been added in Icinga 2 v2.9.
 
 ### Request Method Override <a id="icinga2-api-requests-method-override"></a>
 
@@ -589,10 +617,11 @@ method:
 New objects must be created by sending a PUT request. The following
 parameters need to be passed inside the JSON body:
 
-  Parameters | Type         | Description
-  -----------|--------------|--------------------------
-  templates  | Array        | **Optional.** Import existing configuration templates for this object type. Note: These templates must either be statically configured or provided in [config packages](12-icinga2-api.md#icinga2-api-config-management)-
-  attrs      | Dictionary   | **Required.** Set specific object attributes for this [object type](09-object-types.md#object-types).
+  Parameters        | Type         | Description
+  ------------------|--------------|--------------------------
+  templates         | Array        | **Optional.** Import existing configuration templates for this object type. Note: These templates must either be statically configured or provided in [config packages](12-icinga2-api.md#icinga2-api-config-management)-
+  attrs             | Dictionary   | **Required.** Set specific object attributes for this [object type](09-object-types.md#object-types).
+  ignore\_on\_error | Boolean      | **Optional.** Ignore object creation errors and return an HTTP 200 status instead.
 
 The object name must be specified as part of the URL path. For objects with composite names (e.g. services)
 the full name (e.g. `example.localdomain!http`) must be specified.
@@ -806,7 +835,7 @@ Send a `POST` request to the URL endpoint `/v1/actions/process-check-result`.
   ------------------|--------------|--------------
   exit\_status      | Number       | **Required.** For services: 0=OK, 1=WARNING, 2=CRITICAL, 3=UNKNOWN, for hosts: 0=OK, 1=CRITICAL.
   plugin\_output    | String       | **Required.** One or more lines of the plugin main output. Does **not** contain the performance data.
-  performance\_data | Array        | **Optional.** The performance data.
+  performance\_data | Array|String | **Optional.** The performance data as array of strings. The raw performance data string can be used too.
   check\_command    | Array        | **Optional.** The first entry should be the check commands path, then one entry for each command line option followed by an entry for each of its argument.
   check\_source     | String       | **Optional.** Usually the name of the `command_endpoint`
   execution\_start  | Timestamp    | **Optional.** The timestamp where a script/process started its execution.
@@ -851,16 +880,16 @@ Send a `POST` request to the URL endpoint `/v1/actions/reschedule-check`.
   Parameter    | Type      | Description
   -------------|-----------|--------------
   next\_check  | Timestamp | **Optional.** The next check will be run at this time. If omitted, the current time is used.
-  force\_check | Boolean   | **Optional.** Defaults to `false`. If enabled, the checks are executed regardless of time period restrictions and checks being disabled per object or on a global basis.
+  force        | Boolean   | **Optional.** Defaults to `false`. If enabled, the checks are executed regardless of time period restrictions and checks being disabled per object or on a global basis.
 
 In addition to these parameters a [filter](12-icinga2-api.md#icinga2-api-filters) must be provided. The valid types for this action are `Host` and `Service`.
 
 The example reschedules all services with the name "ping6" to immediately perform a check
 (`next_check` default), ignoring any time periods or whether active checks are
-allowed for the service (`force_check=true`).
+allowed for the service (`force=true`).
 
     $ curl -k -s -u root:icinga -H 'Accept: application/json' -X POST 'https://localhost:5665/v1/actions/reschedule-check' \
-    -d '{ "type": "Service", "filter": "service.name==\"ping6\"", "force_check": true, "pretty": true }'
+    -d '{ "type": "Service", "filter": "service.name==\"ping6\"", "force": true, "pretty": true }'
 
     {
         "results": [
@@ -1088,7 +1117,7 @@ Send a `POST` request to the URL endpoint `/v1/actions/schedule-downtime`.
   fixed         | Boolean   | **Optional.** Defaults to `true`. If true, the downtime is `fixed` otherwise `flexible`. See [downtimes](08-advanced-topics.md#downtimes) for more information.
   duration      | Number    | **Required for flexible downtimes.** Duration of the downtime in seconds if `fixed` is set to false.
   trigger\_name | String    | **Optional.** Sets the trigger for a triggered downtime. See [downtimes](08-advanced-topics.md#downtimes) for more information on triggered downtimes.
-  child\_options | Number   | **Optional.** Schedule child downtimes. `0` does not do anything, `1` schedules child downtimes triggered by this downtime, `2` schedules non-triggered downtimes. Defaults to `0`.
+  child\_options| String    | **Optional.** Schedule child downtimes. `DowntimeNoChildren` does not do anything, `DowntimeTriggeredChildren` schedules child downtimes triggered by this downtime, `DowntimeNonTriggeredChildren` schedules non-triggered downtimes. Defaults to `DowntimeNoChildren`.
 
 In addition to these parameters a [filter](12-icinga2-api.md#icinga2-api-filters) must be provided. The valid types for this action are `Host` and `Service`.
 
@@ -1846,8 +1875,7 @@ There are a couple of existing clients which can be used with the Icinga 2 API:
 
 * [curl](https://curl.haxx.se/) or any other HTTP client really
 * [Icinga 2 console (CLI command)](12-icinga2-api.md#icinga2-api-clients-cli-console)
-* [Icinga Studio](12-icinga2-api.md#icinga2-api-clients-icinga-studio)
-* [Icinga Web 2 Director](https://www.icinga.com/products/icinga-web-2-modules/)
+* [Icinga Web 2 Director](https://icinga.com/products/icinga-web-2-modules/)
 
 Demo cases:
 
@@ -1856,23 +1884,6 @@ Demo cases:
 
 Additional [programmatic examples](12-icinga2-api.md#icinga2-api-clients-programmatic-examples)
 will help you getting started using the Icinga 2 API in your environment.
-
-### Icinga Studio <a id="icinga2-api-clients-icinga-studio"></a>
-
-Icinga Studio is a graphical application to query configuration objects provided by the API.
-
-![Icinga Studio Connection](images/icinga2-api/icinga2_api_icinga_studio_connect.png)
-
-![Icinga Studio Overview](images/icinga2-api/icinga2_api_icinga_studio_overview.png)
-
-Please check the package repository of your distribution for available
-packages.
-
-> **Note**
-> Icinga Studio does not currently support SSL certificate verification.
-
-The Windows installer already includes Icinga Studio. On Debian and Ubuntu the package
-`icinga2-studio` can be used to install Icinga Studio.
 
 ### Icinga 2 Console <a id="icinga2-api-clients-cli-console"></a>
 

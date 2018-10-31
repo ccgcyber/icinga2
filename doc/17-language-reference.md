@@ -9,7 +9,7 @@ objects using the `object` keyword:
       display_name = "host1"
 
       address = "192.168.0.1"
-      address6 = "::1"
+      address6 = "2001:db8:1234::42"
     }
 
 In general you need to write each statement on a new line. Expressions started
@@ -22,7 +22,7 @@ them with a semicolon:
     object Host "host1.example.org" {
       display_name = "host1"
 
-      address = "192.168.0.1"; address6 = "::1"
+      address = "192.168.0.1"; address6 = "2001:db8:1234::42"
     }
 
 Each object is uniquely identified by its type (`Host`) and name
@@ -156,40 +156,85 @@ strings and numbers.
 
 ### Operators <a id="expression-operators"></a>
 
-The following operators are supported in expressions. The operators are by descending precedence.
+The following operators are supported in expressions. The operators are sorted by descending precedence.
 
 Operator | Precedence | Examples (Result)                             | Description
 ---------|------------|-----------------------------------------------|--------------------------------
-()       | 1          | (3 + 3) * 5                                   | Groups sub-expressions
-()       | 1          | Math.random()                                 | Calls a function
-[]       | 1          | a[3]                                          | Array subscript
-.        | 1          | a.b                                           | Element access
-!        | 2          | !"Hello" (false), !false (true)               | Logical negation of the operand
-~        | 2          | ~true (false)                                 | Bitwise negation of the operand
-+        | 2          | +3                                            | Unary plus
--        | 2          | -3                                            | Unary minus
-*        | 3          | 5m * 10 (3000)                                | Multiplies two numbers
-/        | 3          | 5m / 5 (60)                                   | Divides two numbers
-%        | 3          | 17 % 12 (5)                                   | Remainder after division
-+        | 4          | 1 + 3 (4), "hello " + "world" ("hello world") | Adds two numbers; concatenates strings
--        | 4          | 3 - 1 (2)                                     | Subtracts two numbers
-<<       | 5          | 4 << 8 (1024)                                 | Left shift
->>       | 5          | 1024 >> 4 (64)                                | Right shift
-<        | 6         | 3 < 5 (true)                                  | Less than
->        | 6         | 3 > 5 (false)                                 | Greater than
-<=       | 6         | 3 <= 3 (true)                                 | Less than or equal
->=       | 6         | 3 >= 3 (true)                                 | Greater than or equal
-in       | 7          | "foo" in [ "foo", "bar" ] (true)              | Element contained in array
-!in      | 7          | "foo" !in [ "bar", "baz" ] (true)             | Element not contained in array
-==       | 8         | "hello" == "hello" (true), 3 == 5 (false)     | Equal to
-!=       | 8         | "hello" != "world" (true), 3 != 3 (false)     | Not equal to
-&        | 9          | 7 & 3 (3)                                     | Binary AND
-^        | 10          | 17 ^ 12 (29)                                  | Bitwise XOR
-&#124;   | 11          | 2 &#124; 3 (3)                                | Binary OR
-&&       | 13         | true && false (false), 3 && 7 (7), 0 && 7 (0) | Logical AND
-&#124;&#124; | 14     | true &#124;&#124; false (true), 0 &#124;&#124; 7 (7)| Logical OR
-=        | 12         | a = 3                                         | Assignment
-=>       | 15         | x => x * x (function with arg x)              | Lambda, for loop
+`()`       | 1          | (3 + 3) * 5                                   | Groups sub-expressions
+`()`       | 1          | Math.random()                                 | Calls a function
+`[]`       | 1          | a[3]                                          | Array subscript
+`.`       | 1          | a.b                                           | Element access
+`!`        | 2          | !"Hello" (false), !false (true)               | Logical negation of the operand
+`~`        | 2          | ~true (false)                                 | Bitwise negation of the operand
+`+`        | 2          | +3                                            | Unary plus
+`-`        | 2          | -3                                            | Unary minus
+`&`        | 2          | &var (reference to 'var')                     | Reference operator
+`*`        | 2          | *var                                          | Indirection operator
+`*`        | 3          | 5m * 10 (3000)                                | Multiplies two numbers
+`/`        | 3          | 5m / 5 (60)                                   | Divides two numbers
+`%`        | 3          | 17 % 12 (5)                                   | Remainder after division
+`+`        | 4          | 1 + 3 (4), "hello " + "world" ("hello world") | Adds two numbers; concatenates strings
+`-`        | 4          | 3 - 1 (2)                                     | Subtracts two numbers
+`<<`       | 5          | 4 << 8 (1024)                                 | Left shift
+`>>`       | 5          | 1024 >> 4 (64)                                | Right shift
+`<`        | 6         | 3 < 5 (true)                                  | Less than
+`>`        | 6         | 3 > 5 (false)                                 | Greater than
+`<=`       | 6         | 3 <= 3 (true)                                 | Less than or equal
+`>=`       | 6         | 3 >= 3 (true)                                 | Greater than or equal
+`in`       | 7          | "foo" in [ "foo", "bar" ] (true)              | Element contained in array
+`!in`      | 7          | "foo" !in [ "bar", "baz" ] (true)             | Element not contained in array
+`==`       | 8         | "hello" == "hello" (true), 3 == 5 (false)     | Equal to
+`!=`       | 8         | "hello" != "world" (true), 3 != 3 (false)     | Not equal to
+`&`        | 9          | 7 & 3 (3)                                     | Binary AND
+`^`        | 10          | 17 ^ 12 (29)                                  | Bitwise XOR
+<code>&#124;</code>    | 11          | 2 &#124; 3 (3)                                | Binary OR
+<code>&#124;&#124;</code>  | 12     | true &#124;&#124; false (true), 0 &#124;&#124; 7 (7)| Logical OR
+`&&`       | 13         | true && false (false), 3 && 7 (7), 0 && 7 (0) | Logical AND
+`=`        | 14         | a = 3                                         | Assignment
+`=>`       | 15         | x => x * x (function with arg x)              | Lambda, for loop
+
+### References <a id="references"></a>
+
+A reference to a value can be obtained using the `&` operator. The `*` operator can be used
+to dereference a reference:
+
+    var value = "Hello!"
+    var p = &value /* p refers to value */
+    *p = "Hi!"
+    log(value) // Prints "Hi!" because the variable was changed
+
+### Namespaces <a id="namespaces"></a>
+
+Namespaces can be used to organize variables and functions. They are used to avoid name conflicts. The `namespace`
+keyword is used to create a new namespace:
+
+    namespace Utils {
+        function calculate() {
+            return 2 + 2
+        }
+    }
+
+The namespace is made available as a global variable which has the namespace's name (e.g. `Utils`):
+
+    Utils.calculate()
+
+The `using` keyword can be used to make all attributes in a namespace available to a script without having to
+explicitly specify the namespace's name for each access:
+
+    using Utils
+    calculate()
+
+The `using` keyword only has an effect for the current file and only for code that follows the keyword:
+
+    calculate() // This will not work.
+    using Utils
+
+The following namespaces are automatically imported as if by using the `using` keyword:
+
+* System
+* System.Configuration
+* Types
+* Icinga
 
 ### Function Calls <a id="function-calls"></a>
 
@@ -374,41 +419,83 @@ once they are set.
 
 ### Icinga 2 Specific Constants <a id="icinga-constants"></a>
 
-Icinga 2 provides a number of special global constants. Some of them can be overridden using the `--define` command line parameter:
+Icinga 2 provides a number of special global constants. These include directory paths, global configuration
+and runtime parameters for the application version and (build) platform.
+
+Directory paths:
+
+Constant            | Description
+--------------------|-------------------
+ConfigDir           |**Read-only.** Main configuration directory. Usually set to `/etc/icinga2`.
+DataDir             |**Read-only.** Runtime data for the Icinga daemon. Usually set to `/var/lib/icinga2`.
+LogDir              |**Read-only.** Logfiles from the daemon. Usually set to `/var/log/icinga2`.
+CacheDir            |**Read-only.** Cached status information of the daemon. Usually set to `/var/cache/icinga2`.
+SpoolDir            |**Read-only.** Spool directory for certain data outputs. Usually set to `/var/spool/icinga2`.
+InitRunDir          |**Read-only.** Directory for PID files and sockets in daemon mode. Usually set to `/run/icinga2`.
+ZonesDir            |**Read-only.** Contains the path of the zones.d directory. Defaults to `ConfigDir + "/zones.d"`.
+
+Global configuration:
+
+Constant            | Description
+--------------------|-------------------
+Vars                |**Read-write.** Contains a dictionary with global custom attributes. Not set by default.
+NodeName            |**Read-write.** Contains the cluster node name. Set to the local hostname by default.
+Environment         |**Read-write.** The name of the Icinga environment. Included in the SNI host name for outbound connections. Not set by default.
+RunAsUser           |**Read-write.** Defines the user the Icinga 2 daemon is running as. Set in the Icinga 2 sysconfig.
+RunAsGroup          |**Read-write.** Defines the group the Icinga 2 daemon is running as. Set in the Icinga 2 sysconfig.
+MaxConcurrentChecks |**Read-write.** The number of max checks run simultaneously. Defaults to `512`.
+ApiBindHost         |**Read-write.** Overrides the default value for the ApiListener `bind_host` attribute. Not set by default.
+ApiBindPort         |**Read-write.** Overrides the default value for the ApiListener `bind_port` attribute. Not set by default.
+
+Application runtime details:
+
+Constant            | Description
+--------------------|-------------------
+PlatformName        |**Read-only.** The name of the operating system, e.g. `Ubuntu`.
+PlatformVersion     |**Read-only.** The version of the operating system, e.g. `14.04.3 LTS`.
+PlatformKernel      |**Read-only.** The name of the operating system kernel, e.g. `Linux`.
+PlatformKernelVersion|**Read-only.** The version of the operating system kernel, e.g. `3.13.0-63-generic`.
+BuildCompilerName   |**Read-only.** The name of the compiler Icinga was built with, e.g. `Clang`.
+BuildCompilerVersion|**Read-only.** The version of the compiler Icinga was built with, e.g. `7.3.0.7030031`.
+BuildHostName       |**Read-only.** The name of the host Icinga was built on, e.g. `acheron`.
+ApplicationVersion  |**Read-only.** The application version, e.g. `2.9.0`.
+
+Writable constants can be specified on the CLI using the `--define/-D` parameter.
+
+> **Note for v2.10+**
+>
+> Default paths which include `/etc` and `/var` as base directory continue to work
+> based on the `SysconfDir` and `LocalStateDir` constants respectively.
+
+In addition to that, the constants below are used to define specific file paths. You should never need
+to change them, as they are pre-compiled based on the constants above.
 
 Variable            |Description
 --------------------|-------------------
-PrefixDir           |**Read-only.** Contains the installation prefix that was specified with cmake -DCMAKE_INSTALL_PREFIX. Defaults to "/usr/local".
-SysconfDir          |**Read-only.** Contains the path of the sysconf directory. Defaults to PrefixDir + "/etc".
-ZonesDir            |**Read-only.** Contains the path of the zones.d directory. Defaults to SysconfDir + "/zones.d".
-LocalStateDir       |**Read-only.** Contains the path of the local state directory. Defaults to PrefixDir + "/var".
-RunDir              |**Read-only.** Contains the path of the run directory. Defaults to LocalStateDir + "/run".
-PkgDataDir          |**Read-only.** Contains the path of the package data directory. Defaults to PrefixDir + "/share/icinga2".
-StatePath           |**Read-write.** Contains the path of the Icinga 2 state file. Defaults to LocalStateDir + "/lib/icinga2/icinga2.state".
-ObjectsPath         |**Read-write.** Contains the path of the Icinga 2 objects file. Defaults to LocalStateDir + "/cache/icinga2/icinga2.debug".
-PidPath             |**Read-write.** Contains the path of the Icinga 2 PID file. Defaults to RunDir + "/icinga2/icinga2.pid".
-Vars                |**Read-write.** Contains a dictionary with global custom attributes. Not set by default.
-NodeName            |**Read-write.** Contains the cluster node name. Set to the local hostname by default.
-RunAsUser           |**Read-write.** Defines the user the Icinga 2 daemon is running as. Used in the `init.conf` configuration file.
-RunAsGroup          |**Read-write.** Defines the group the Icinga 2 daemon is running as. Used in the `init.conf` configuration file.
-PlatformName        |**Read-only.** The name of the operating system, e.g. "Ubuntu".
-PlatformVersion     |**Read-only.** The version of the operating system, e.g. "14.04.3 LTS".
-PlatformKernel      |**Read-only.** The name of the operating system kernel, e.g. "Linux".
-PlatformKernelVersion|**Read-only.** The version of the operating system kernel, e.g. "3.13.0-63-generic".
-BuildCompilerName   |**Read-only.** The name of the compiler Icinga was built with, e.g. "Clang".
-BuildCompilerVersion|**Read-only.** The version of the compiler Icinga was built with, e.g. "7.3.0.7030031".
-BuildHostName       |**Read-only.** The name of the host Icinga was built on, e.g. "acheron".
+StatePath           |**Read-write.** Contains the path of the Icinga 2 state file. Defaults to `DataDir + "/icinga2.state"`.
+ObjectsPath         |**Read-write.** Contains the path of the Icinga 2 objects file. Defaults to `CacheDir + "/icinga2.debug"`.
+PidPath             |**Read-write.** Contains the path of the Icinga 2 PID file. Defaults to `InitRunDir + "/icinga2.pid"`.
+PkgDataDir          |**Read-only.** Contains the path of the package data directory. Defaults to `PrefixDir + "/share/icinga2"`.
 
+The constants below have been used until Icinga v2.10, and are still intact. You don't need them
+for future builds and configuration based on the newly available constants above.
+
+Variable            |Description
+--------------------|-------------------
+PrefixDir           |**Read-only.** Contains the installation prefix that was specified with `cmake -DCMAKE_INSTALL_PREFIX`. `Defaults to "/usr/local"`.
+SysconfDir          |**Read-only.** Contains the path of the sysconf directory. Defaults to `PrefixDir + "/etc"`.
+LocalStateDir       |**Read-only.** Contains the path of the local state directory. Defaults to `PrefixDir + "/var"`.
+RunDir              |**Read-only.** Contains the path of the run directory. Defaults to `LocalStateDir + "/run"`.
 
 Advanced runtime constants. Please only use them if advised by support or developers.
 
-Variable            |Description
---------------------|-------------------
-EventEngine         |**Read-write.** The name of the socket event engine, can be `poll` or `epoll`. The epoll interface is only supported on Linux.
-AttachDebugger      |**Read-write.** Whether to attach a debugger when Icinga 2 crashes. Defaults to `false`.
-RLimitFiles         |**Read-write.** Defines the resource limit for RLIMIT_NOFILE that should be set at start-up. Value cannot be set lower than the default `16 * 1024`. 0 disables the setting. Used in the `init.conf` configuration file.
-RLimitProcesses     |**Read-write.** Defines the resource limit for RLIMIT_NPROC that should be set at start-up. Value cannot be set lower than the default `16 * 1024`. 0 disables the setting. Used in the `init.conf` configuration file.
-RLimitStack         |**Read-write.** Defines the resource limit for RLIMIT_STACK that should be set at start-up. Value cannot be set lower than the default `256 * 1024`. 0 disables the setting. Used in the `init.conf` configuration file.
+Variable                   | Description
+---------------------------|-------------------
+EventEngine                |**Read-write.** The name of the socket event engine, can be `poll` or `epoll`. The epoll interface is only supported on Linux.
+AttachDebugger             |**Read-write.** Whether to attach a debugger when Icinga 2 crashes. Defaults to `false`.
+ICINGA2\_RLIMIT\_FILES     |**Read-write.** Defines the resource limit for RLIMIT_NOFILE that should be set at start-up. Value cannot be set lower than the default `16 * 1024`. 0 disables the setting. Set in Icinga 2 sysconfig.
+ICINGA2\_RLIMIT\_PROCESSES |**Read-write.** Defines the resource limit for RLIMIT_NPROC that should be set at start-up. Value cannot be set lower than the default `16 * 1024`. 0 disables the setting. Set in Icinga 2 sysconfig.
+ICINGA2\_RLIMIT\_STACK     |**Read-write.** Defines the resource limit for RLIMIT_STACK that should be set at start-up. Value cannot be set lower than the default `256 * 1024`. 0 disables the setting. Set in Icinga 2 sysconfig.
 
 ## Apply <a id="apply"></a>
 
@@ -718,12 +805,12 @@ You can explicitly access the `this` scope using the `this` keyword:
 
     object Host "localhost" {
       var check_interval = 5m
-  
+
       /* This explicitly specifies that the attribute should be set
        * for the host, if we had omitted `this.` the (poorly named)
        * local variable `check_interval` would have been modified instead.
        */
-      this.check_interval = 1m 
+      this.check_interval = 1m
   }
 
 Similarly the keywords `locals` and `globals` are available to access the local and global scope.
@@ -733,7 +820,7 @@ a function is set to whichever object was used to invoke the function. Here's an
 
      hm = {
        h_word = null
- 
+
        function init(word) {
          h_word = word
        }
@@ -827,7 +914,7 @@ Example:
 
     var list = [ "a", "b", "c" ]
 
-    for (item in list) {
+    for (var item in list) {
       log("Item: " + item)
     }
 
@@ -838,13 +925,16 @@ Iterating over dictionaries can be accomplished in a similar manner:
 
     var dict = { a = 3, b = 7 }
 
-    for (key => value in dict) {
+    for (var key => var value in dict) {
       log("Key: " + key + ", Value: " + value)
     }
 
 The `continue` and `break` keywords can be used to control how the loop is executed: The `continue` keyword
 skips over the remaining expressions for the loop body and begins the next loop evaluation. The `break` keyword
 breaks out of the loop.
+
+The `var` keyword is optional when declaring variables in the loop's header. Variables declared without the `var`
+keyword are nonetheless local to the function.
 
 ## Constructors <a id="constructor"></a>
 
@@ -977,6 +1067,8 @@ These keywords are reserved and must not be used as constants or custom attribut
     try
     except
     in
+    using
+    namespace
 
 You can escape reserved keywords using the `@` character. The following example
 tries to set `vars.include` which references a reserved keyword and generates
@@ -1006,4 +1098,3 @@ You can escape the `include` keyword by prefixing it with an additional `@` char
 
       vars.@include = "some cmdb export field"
     }
-

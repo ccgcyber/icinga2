@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -158,11 +158,11 @@ std::vector<ApplyRule>& ApplyRule::GetRules(const String& type)
 	return it->second;
 }
 
-void ApplyRule::CheckMatches()
+void ApplyRule::CheckMatches(bool silent)
 {
 	for (const RuleMap::value_type& kv : m_Rules) {
 		for (const ApplyRule& rule : kv.second) {
-			if (!rule.HasMatches())
+			if (!rule.HasMatches() && !silent)
 				Log(LogWarning, "ApplyRule")
 					<< "Apply rule '" << rule.GetName() << "' (" << rule.GetDebugInfo() << ") for type '" << kv.first << "' does not match anywhere!";
 		}

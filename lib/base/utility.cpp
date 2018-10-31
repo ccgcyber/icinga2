@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -1935,3 +1935,17 @@ String Utility::GetIcingaDataPath()
 }
 
 #endif /* _WIN32 */
+
+String Utility::GetFromEnvironment(const String& env)
+{
+#ifndef _WIN32
+	const char *envValue = getenv(env.CStr());
+	if (envValue == NULL)
+		return String();
+	else
+		return String(envValue);
+#else /* _WIN32 */
+	// While getenv exists on Windows, we don't set them. Therefore there is no reason to read them.
+	return String();
+#endif /* _WIN32 */
+}

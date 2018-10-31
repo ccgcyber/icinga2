@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -49,8 +49,8 @@ public:
 
 protected:
 	void OnConfigLoaded() override;
-	void Start(bool runtimeCreated) override;
-	void Stop(bool runtimeRemoved) override;
+	void Resume() override;
+	void Pause() override;
 
 private:
 	WorkQueue m_WorkQueue{10000000, 1};

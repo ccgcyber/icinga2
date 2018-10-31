@@ -1,5 +1,5 @@
 # Icinga 2
-# Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)
+# Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -15,11 +15,10 @@
 # along with this program; if not, write to the Free Software Foundation
 # Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
 
-set(Boost_USE_STATIC_LIBS OFF)
-
 include(BoostTestTargets)
 
 set(base_test_SOURCES
+  icingaapplication-fixture.cpp
   base-array.cpp
   base-base64.cpp
   base-convert.cpp
@@ -29,6 +28,7 @@ set(base_test_SOURCES
   base-match.cpp
   base-netstring.cpp
   base-object.cpp
+  base-object-packer.cpp
   base-serialize.cpp
   base-shellescape.cpp
   base-stacktrace.cpp
@@ -57,12 +57,13 @@ endif()
 add_boost_test(base
   SOURCES test-runner.cpp ${base_test_SOURCES}
   LIBRARIES ${base_DEPS}
-  TESTS 
+  TESTS
     base_array/construct
     base_array/getset
     base_array/resize
     base_array/insert
     base_array/remove
+    base_array/unique
     base_array/foreach
     base_array/clone
     base_array/json
@@ -81,6 +82,13 @@ add_boost_test(base
     base_fifo/construct
     base_fifo/io
     base_json/invalid1
+    base_object_packer/pack_null
+    base_object_packer/pack_false
+    base_object_packer/pack_true
+    base_object_packer/pack_number
+    base_object_packer/pack_string
+    base_object_packer/pack_array
+    base_object_packer/pack_object
     base_match/tolong
     base_netstring/netstring
     base_object/construct
@@ -145,6 +153,7 @@ add_boost_test(base
 
 if(ICINGA2_WITH_LIVESTATUS)
   set(livestatus_test_SOURCES
+    icingaapplication-fixture.cpp
     livestatus-fixture.cpp
     livestatus.cpp
     ${base_OBJS}
@@ -167,6 +176,7 @@ if(ICINGA2_WITH_LIVESTATUS)
 endif()
 
 set(icinga_checkable_test_SOURCES
+  icingaapplication-fixture.cpp
   icinga-checkable-fixture.cpp
   icinga-checkable-flapping.cpp
   ${base_OBJS}

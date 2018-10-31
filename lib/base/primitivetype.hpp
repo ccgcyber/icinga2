@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -48,6 +48,7 @@ private:
 	ObjectFactory m_Factory;
 };
 
+/* Ensure that the priority is lower than the basic namespace initialization in scriptframe.cpp. */
 #define REGISTER_BUILTIN_TYPE(type, prototype)					\
 	INITIALIZE_ONCE_WITH_PRIORITY([]() {					\
 		icinga::Type::Ptr t = new PrimitiveType(#type, "None"); 	\

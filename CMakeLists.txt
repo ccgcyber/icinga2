@@ -1,5 +1,5 @@
 # Icinga 2
-# Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)
+# Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -35,7 +35,6 @@ option(ICINGA2_WITH_COMPAT "Build the compat module" ON)
 option(ICINGA2_WITH_LIVESTATUS "Build the Livestatus module" ON)
 option(ICINGA2_WITH_NOTIFICATION "Build the notification module" ON)
 option(ICINGA2_WITH_PERFDATA "Build the perfdata module" ON)
-option(ICINGA2_WITH_STUDIO "Build the Icinga Studio application" OFF)
 option(ICINGA2_WITH_TESTS "Run unit tests" ON)
 
 option (USE_SYSTEMD
@@ -43,20 +42,49 @@ option (USE_SYSTEMD
 
 set(HAVE_SYSTEMD ${USE_SYSTEMD})
 
-file(STRINGS icinga2.spec VERSION_LINE REGEX "^Version: ")
+file(STRINGS VERSION VERSION_LINE REGEX "^Version: ")
 string(REPLACE "Version: " "" ICINGA2_VERSION ${VERSION_LINE})
 
 include(GNUInstallDirs)
 include(InstallConfig)
+include(SetFullDir)
 
 set(ICINGA2_USER "icinga" CACHE STRING "Icinga 2 user")
 set(ICINGA2_GROUP "icinga" CACHE STRING "Icinga 2 group")
 set(ICINGA2_COMMAND_GROUP "icingacmd" CACHE STRING "Icinga 2 command group")
-set(ICINGA2_RUNDIR "${CMAKE_INSTALL_FULL_LOCALSTATEDIR}/run" CACHE STRING "/run directory")
 set(ICINGA2_PLUGINDIR "/usr/lib/nagios/plugins" CACHE STRING "Path for the check plugins")
 set(ICINGA2_GIT_VERSION_INFO ON CACHE BOOL "Whether to use git describe")
 set(ICINGA2_UNITY_BUILD ON CACHE BOOL "Whether to perform a unity build")
 set(ICINGA2_LTO_BUILD OFF CACHE BOOL "Whether to use LTO")
+
+set(ICINGA2_CONFIGDIR "${CMAKE_INSTALL_SYSCONFDIR}/icinga2" CACHE FILEPATH "Main config directory, e.g. /etc/icinga2")
+set(ICINGA2_CACHEDIR "${CMAKE_INSTALL_LOCALSTATEDIR}/cache/icinga2" CACHE FILEPATH "Directory for cache files, e.g. /var/cache/icinga2")
+set(ICINGA2_DATADIR "${CMAKE_INSTALL_LOCALSTATEDIR}/lib/icinga2" CACHE FILEPATH "Data directory for the daemon, e.g. /var/lib/icinga2")
+set(ICINGA2_LOGDIR "${CMAKE_INSTALL_LOCALSTATEDIR}/log/icinga2" CACHE FILEPATH "Logging directory, e.g. /var/log/icinga2")
+set(ICINGA2_SPOOLDIR "${CMAKE_INSTALL_LOCALSTATEDIR}/spool/icinga2" CACHE FILEPATH "Spooling directory, e.g. /var/spool/icinga2")
+set(ICINGA2_RUNDIR "${CMAKE_INSTALL_LOCALSTATEDIR}/run" CACHE STRING "/run directory (deprecated, please use ICINGA2_INITRUNDIR)")
+set(ICINGA2_INITRUNDIR "${ICINGA2_RUNDIR}/icinga2" CACHE FILEPATH "Runtime data for the init system, e.g. /run/icinga2")
+
+set(ICINGA2_PKGDATADIR "${CMAKE_INSTALL_DATADIR}/icinga2" CACHE FILEPATH "Installed data, e.g. /usr/share/icinga2")
+set(ICINGA2_INCLUDEDIR "${ICINGA2_PKGDATADIR}/include" CACHE FILEPATH "Include directory for the ITL, e.g. /usr/share/icinga2/include")
+
+# ensure absolute paths
+set_full_dir(ICINGA2_FULL_CONFIGDIR "${ICINGA2_CONFIGDIR}")
+set_full_dir(ICINGA2_FULL_CACHEDIR "${ICINGA2_CACHEDIR}")
+set_full_dir(ICINGA2_FULL_DATADIR "${ICINGA2_DATADIR}")
+set_full_dir(ICINGA2_FULL_LOGDIR "${ICINGA2_LOGDIR}")
+set_full_dir(ICINGA2_FULL_SPOOLDIR "${ICINGA2_SPOOLDIR}")
+set_full_dir(ICINGA2_FULL_RUNDIR "${ICINGA2_RUNDIR}")
+set_full_dir(ICINGA2_FULL_INITRUNDIR "${ICINGA2_INITRUNDIR}")
+set_full_dir(ICINGA2_FULL_PKGDATADIR "${ICINGA2_PKGDATADIR}")
+set_full_dir(ICINGA2_FULL_INCLUDEDIR "${ICINGA2_INCLUDEDIR}")
+
+set(LOGROTATE_DIR "${CMAKE_INSTALL_SYSCONFDIR}/logrotate.d" CACHE STRING "Location of logrotate configs, e.g. /etc/logrotate.d")
+set(BASHCOMPLETION_DIR "${CMAKE_INSTALL_SYSCONFDIR}/bash_completion.d" CACHE STRING "Location of bash_completion files, e.g. /etc/bash_completion.d")
+
+if(NOT WIN32)
+  set(ICINGA2_SYSCONFIGFILE "${CMAKE_INSTALL_SYSCONFDIR}/sysconfig/icinga2" CACHE PATH "where to store configuation for the init system, defaults to /etc/sysconfig/icinga2")
+endif()
 
 site_name(ICINGA2_BUILD_HOST_NAME)
 set(ICINGA2_BUILD_COMPILER_NAME "${CMAKE_CXX_COMPILER_ID}")
@@ -69,11 +97,10 @@ endif()
 set(ICINGA2_BUILD_COMPILER_VERSION "${CMAKE_CXX_COMPILER_VERSION}")
 
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/COPYING" ICINGA2_LICENSE_GPL)
-file(READ "${CMAKE_CURRENT_SOURCE_DIR}/COPYING.Exceptions" ICINGA2_LICENSE_ADDITIONS)
 set(ICINGA2_LICENSE "${ICINGA2_LICENSE_GPL}\n\n---\n\n${ICINGA2_LICENSE_ADDITIONS}")
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/LICENSE.txt" ${ICINGA2_LICENSE})
 
-file(STRINGS icinga2.spec SPEC_VERSION REGEX "^Version:")
+file(STRINGS VERSION SPEC_VERSION REGEX "^Version:")
 string(LENGTH "${SPEC_VERSION}" SPEC_VERSION_LENGTH)
 math(EXPR SPEC_VERSION_LENGTH "${SPEC_VERSION_LENGTH} - 9")
 string(SUBSTRING ${SPEC_VERSION} 9 ${SPEC_VERSION_LENGTH} SPEC_VERSION)
@@ -86,10 +113,10 @@ if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/icinga-version.h.force)
   configure_file(icinga-version.h.force ${CMAKE_CURRENT_BINARY_DIR}/icinga-version.h COPYONLY)
 else()
   if(NOT ICINGA2_GIT_VERSION_INFO OR GIT_VERSION MATCHES "-NOTFOUND$")
-    file(STRINGS icinga2.spec SPEC_REVISION REGEX "^%define revision ")
+    file(STRINGS VERSION SPEC_REVISION REGEX "^Revision: ")
     string(LENGTH "${SPEC_REVISION}" SPEC_REVISION_LENGTH)
-    math(EXPR SPEC_REVISION_LENGTH "${SPEC_REVISION_LENGTH} - 17")
-    string(SUBSTRING ${SPEC_REVISION} 17 ${SPEC_REVISION_LENGTH} SPEC_REVISION)
+    math(EXPR SPEC_REVISION_LENGTH "${SPEC_REVISION_LENGTH} - 10")
+    string(SUBSTRING ${SPEC_REVISION} 10 ${SPEC_REVISION_LENGTH} SPEC_REVISION)
 
     set(GIT_VERSION "r${SPEC_VERSION}-${SPEC_REVISION}")
   endif()
@@ -340,7 +367,7 @@ endif()
 configure_file(config.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/config.h ESCAPE_QUOTES)
 
 install(
-  FILES README.md COPYING COPYING.Exceptions AUTHORS CHANGELOG.md NEWS
+  FILES README.md COPYING AUTHORS CHANGELOG.md NEWS
   DESTINATION ${CMAKE_INSTALL_DOCDIR}
 )
 
@@ -364,10 +391,6 @@ if(MSVC)
   add_subdirectory(icinga-installer)
 endif()
 
-if(ICINGA2_WITH_STUDIO)
-  add_subdirectory(icinga-studio)
-endif()
-
 if(ICINGA2_WITH_TESTS)
   add_subdirectory(test)
 endif()
@@ -379,7 +402,7 @@ set(CPACK_PACKAGE_INSTALL_DIRECTORY "ICINGA2")
 set(CPACK_PACKAGE_ICON "${CMAKE_CURRENT_SOURCE_DIR}/icinga-app\\\\icinga.ico")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_BINARY_DIR}/LICENSE.txt")
 
-set(CPACK_PACKAGE_EXECUTABLES "Icinga2SetupAgent;Icinga 2 Agent Wizard;icinga-studio;Icinga Studio")
+set(CPACK_PACKAGE_EXECUTABLES "Icinga2SetupAgent;Icinga 2 Agent Wizard")
 set(CPACK_WIX_PRODUCT_ICON "${CMAKE_CURRENT_SOURCE_DIR}/icinga-app\\\\icinga.ico")
 set(CPACK_WIX_UPGRADE_GUID "52F2BEAA-4DF0-4C3E-ABDC-C0F61DE4DF8A")
 set(CPACK_WIX_EXTENSIONS "WixUtilExtension")

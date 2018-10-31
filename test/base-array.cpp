@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -102,6 +102,27 @@ BOOST_AUTO_TEST_CASE(remove)
 	BOOST_CHECK(array->GetLength() == 0);
 }
 
+BOOST_AUTO_TEST_CASE(unique)
+{
+	Array::Ptr array = new Array();
+	array->Add("group1");
+	array->Add("group2");
+	array->Add("group1");
+	array->Add("group2");
+
+	Array::Ptr result;
+
+	{
+		ObjectLock olock(array);
+		result = array->Unique();
+	}
+
+	BOOST_CHECK(result->GetLength() == 2);
+	result->Sort();
+
+	BOOST_CHECK(result->Get(0) == "group1");
+	BOOST_CHECK(result->Get(1) == "group2");
+}
 BOOST_AUTO_TEST_CASE(foreach)
 {
 	Array::Ptr array = new Array();

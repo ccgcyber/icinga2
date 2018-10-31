@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -37,9 +37,9 @@ INITIALIZE_ONCE([]() {
 
 bool HostGroup::EvaluateObjectRule(const Host::Ptr& host, const ConfigItem::Ptr& group)
 {
-	String group_name = group->GetName();
+	String groupName = group->GetName();
 
-	CONTEXT("Evaluating rule for group '" + group_name + "'");
+	CONTEXT("Evaluating rule for group '" + groupName + "'");
 
 	ScriptFrame frame(true);
 	if (group->GetScope())
@@ -50,10 +50,12 @@ bool HostGroup::EvaluateObjectRule(const Host::Ptr& host, const ConfigItem::Ptr&
 		return false;
 
 	Log(LogDebug, "HostGroup")
-		<< "Assigning membership for group '" << group_name << "' to host '" << host->GetName() << "'";
+		<< "Assigning membership for group '" << groupName << "' to host '" << host->GetName() << "'";
 
 	Array::Ptr groups = host->GetGroups();
-	groups->Add(group_name);
+
+	if (groups && !groups->Contains(groupName))
+		groups->Add(groupName);
 
 	return true;
 }

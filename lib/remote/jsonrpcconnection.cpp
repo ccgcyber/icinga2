@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -59,7 +59,7 @@ void JsonRpcConnection::StaticInitialize()
 	l_JsonRpcConnectionTimeoutTimer->SetInterval(15);
 	l_JsonRpcConnectionTimeoutTimer->Start();
 
-	l_JsonRpcConnectionWorkQueueCount = Application::GetConcurrency();
+	l_JsonRpcConnectionWorkQueueCount = Configuration::Concurrency;
 	l_JsonRpcConnectionWorkQueues = new WorkQueue[l_JsonRpcConnectionWorkQueueCount];
 
 	for (size_t i = 0; i < l_JsonRpcConnectionWorkQueueCount; i++) {
@@ -114,10 +114,15 @@ void JsonRpcConnection::SendMessage(const Dictionary::Ptr& message)
 {
 	try {
 		ObjectLock olock(m_Stream);
+
 		if (m_Stream->IsEof())
 			return;
+
 		size_t bytesSent = JsonRpc::SendMessage(m_Stream, message);
-		m_Endpoint->AddMessageSent(bytesSent);
+
+		if (m_Endpoint)
+			m_Endpoint->AddMessageSent(bytesSent);
+
 	} catch (const std::exception& ex) {
 		std::ostringstream info;
 		info << "Error while sending JSON-RPC message for identity '" << m_Identity << "'";
@@ -220,7 +225,11 @@ void JsonRpcConnection::MessageHandler(const String& jsonString)
 			Log(LogNotice, "JsonRpcConnection")
 				<< "Call to non-existent function '" << method << "' from endpoint '" << m_Identity << "'.";
 		} else {
-			resultMessage->Set("result", afunc->Invoke(origin, message->Get("params")));
+			Dictionary::Ptr params = message->Get("params");
+			if (params)
+				resultMessage->Set("result", afunc->Invoke(origin, params));
+			else
+				resultMessage->Set("result", Empty);
 		}
 	} catch (const std::exception& ex) {
 		/* TODO: Add a user readable error message for the remote caller */
@@ -239,9 +248,15 @@ void JsonRpcConnection::MessageHandler(const String& jsonString)
 
 bool JsonRpcConnection::ProcessMessage()
 {
+	/* Limit for anonymous clients (signing requests and not configured endpoints. */
+	ssize_t maxMessageLength = 1024 * 1024;
+
+	if (m_Endpoint)
+		maxMessageLength = -1; /* no limit */
+
 	String message;
 
-	StreamReadStatus srs = JsonRpc::ReadMessage(m_Stream, &message, m_Context, false);
+	StreamReadStatus srs = JsonRpc::ReadMessage(m_Stream, &message, m_Context, false, maxMessageLength);
 
 	if (srs != StatusNewItem)
 		return false;
@@ -282,9 +297,6 @@ void JsonRpcConnection::DataAvailableHandler()
 
 Value SetLogPositionHandler(const MessageOrigin::Ptr& origin, const Dictionary::Ptr& params)
 {
-	if (!params)
-		return Empty;
-
 	double log_position = params->Get("log_position");
 	Endpoint::Ptr endpoint = origin->FromClient->GetEndpoint();
 

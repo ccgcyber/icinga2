@@ -1,6 +1,6 @@
 /******************************************************************************
  * Icinga 2                                                                   *
- * Copyright (C) 2012-2018 Icinga Development Team (https://www.icinga.com/)  *
+ * Copyright (C) 2012-2018 Icinga Development Team (https://icinga.com/)      *
  *                                                                            *
  * This program is free software; you can redistribute it and/or              *
  * modify it under the terms of the GNU General Public License                *
@@ -48,6 +48,7 @@ public:
 	static Dictionary::Ptr ProcessTimeRange(const String& timerange, tm *reference);
 	static void ProcessTimeRanges(const String& timeranges, tm *reference, const Array::Ptr& result);
 	static Dictionary::Ptr FindNextSegment(const String& daydef, const String& timeranges, tm *reference);
+	static Dictionary::Ptr FindRunningSegment(const String& daydef, const String& timeranges, tm *reference);
 
 private:
 	LegacyTimePeriod();
